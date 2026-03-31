@@ -1,0 +1,170 @@
+DROP DATABASE IF EXISTS `system`;
+CREATE DATABASE `system`
+  DEFAULT CHARACTER SET utf8mb4
+  DEFAULT COLLATE utf8mb4_general_ci;
+
+USE `system`;
+SET NAMES utf8mb4;
+
+CREATE TABLE `department` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '部门ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '部门名称',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '部门描述',
+  UNIQUE KEY `ukDepartmentName` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='部门表';
+
+CREATE TABLE `role` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '角色ID',
+  `code` VARCHAR(50) NOT NULL COMMENT '角色编码',
+  `name` VARCHAR(100) NOT NULL COMMENT '角色名称',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '角色描述',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '角色状态',
+  UNIQUE KEY `ukRoleCode` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
+
+CREATE TABLE `device` (
+  `id` VARCHAR(64) PRIMARY KEY COMMENT '设备编号',
+  `name` VARCHAR(100) NOT NULL COMMENT '设备名称',
+  `location` VARCHAR(255) DEFAULT NULL COMMENT '设备位置',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '设备状态',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '设备描述'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
+
+CREATE TABLE `user` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '用户ID',
+  `username` VARCHAR(50) NOT NULL COMMENT '登录账号',
+  `password` VARCHAR(100) NOT NULL COMMENT '登录密码',
+  `realName` VARCHAR(50) NOT NULL COMMENT '真实姓名',
+  `gender` VARCHAR(10) DEFAULT NULL COMMENT '性别',
+  `phone` VARCHAR(20) DEFAULT NULL COMMENT '联系电话',
+  `deptId` BIGINT NOT NULL COMMENT '部门ID',
+  `roleId` BIGINT NOT NULL COMMENT '角色ID',
+  `status` INT NOT NULL DEFAULT 1 COMMENT '用户状态',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  UNIQUE KEY `ukUserUsername` (`username`),
+  KEY `idxUserDeptId` (`deptId`),
+  KEY `idxUserRoleId` (`roleId`),
+  CONSTRAINT `fkUserDept` FOREIGN KEY (`deptId`) REFERENCES `department` (`id`),
+  CONSTRAINT `fkUserRole` FOREIGN KEY (`roleId`) REFERENCES `role` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+CREATE TABLE `faceFeature` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '人脸特征ID',
+  `userId` BIGINT NOT NULL COMMENT '用户ID',
+  `featureData` TEXT NOT NULL COMMENT '人脸特征数据',
+  `featureHash` VARCHAR(128) NOT NULL COMMENT '特征摘要',
+  `encryptFlag` INT NOT NULL DEFAULT 1 COMMENT '加密标记',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxFaceFeatureUserId` (`userId`),
+  UNIQUE KEY `ukFaceFeatureHash` (`featureHash`),
+  CONSTRAINT `fkFaceFeatureUser` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='人脸特征表';
+
+CREATE TABLE `rule` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '规则ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '规则名称',
+  `startTime` TIME NOT NULL COMMENT '上班时间',
+  `endTime` TIME NOT NULL COMMENT '下班时间',
+  `lateThreshold` INT NOT NULL DEFAULT 10 COMMENT '迟到阈值',
+  `earlyThreshold` INT NOT NULL DEFAULT 10 COMMENT '早退阈值',
+  `repeatLimit` INT NOT NULL DEFAULT 3 COMMENT '重复打卡阈值',
+  `status` INT NOT NULL DEFAULT 1 COMMENT '规则状态',
+  UNIQUE KEY `ukRuleName` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='考勤规则表';
+
+CREATE TABLE `attendanceRecord` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '打卡记录ID',
+  `userId` BIGINT NOT NULL COMMENT '用户ID',
+  `checkTime` DATETIME NOT NULL COMMENT '打卡时间',
+  `checkType` VARCHAR(20) NOT NULL COMMENT '打卡类型',
+  `deviceId` VARCHAR(64) NOT NULL COMMENT '设备ID',
+  `ipAddr` VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',
+  `location` VARCHAR(255) DEFAULT NULL COMMENT '打卡地点',
+  `faceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '人脸相似度',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT '打卡状态',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxAttendanceRecordUserTime` (`userId`, `checkTime`),
+  KEY `idxAttendanceRecordDeviceTime` (`deviceId`, `checkTime`),
+  CONSTRAINT `fkAttendanceRecordUser` FOREIGN KEY (`userId`) REFERENCES `user` (`id`),
+  CONSTRAINT `fkAttendanceRecordDevice` FOREIGN KEY (`deviceId`) REFERENCES `device` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='打卡记录表';
+
+CREATE TABLE `attendanceException` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '异常记录ID',
+  `recordId` BIGINT NOT NULL COMMENT '打卡记录ID',
+  `userId` BIGINT NOT NULL COMMENT '用户ID',
+  `type` VARCHAR(50) NOT NULL COMMENT '异常类型',
+  `riskLevel` VARCHAR(20) NOT NULL COMMENT '风险等级',
+  `sourceType` VARCHAR(20) NOT NULL DEFAULT 'RULE' COMMENT '来源类型',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '异常描述',
+  `processStatus` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '处理状态',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxAttendanceExceptionUserTime` (`userId`, `createTime`),
+  KEY `idxAttendanceExceptionProcessStatus` (`processStatus`),
+  CONSTRAINT `fkAttendanceExceptionRecord` FOREIGN KEY (`recordId`) REFERENCES `attendanceRecord` (`id`),
+  CONSTRAINT `fkAttendanceExceptionUser` FOREIGN KEY (`userId`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='异常记录表';
+
+CREATE TABLE `exceptionAnalysis` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '分析结果ID',
+  `exceptionId` BIGINT NOT NULL COMMENT '异常记录ID',
+  `inputSummary` TEXT DEFAULT NULL COMMENT '输入摘要',
+  `modelResult` TEXT DEFAULT NULL COMMENT '模型输出',
+  `confidenceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '置信度',
+  `decisionReason` TEXT DEFAULT NULL COMMENT '判定依据',
+  `suggestion` VARCHAR(255) DEFAULT NULL COMMENT '处理建议',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  UNIQUE KEY `ukExceptionAnalysisExceptionId` (`exceptionId`),
+  CONSTRAINT `fkExceptionAnalysisException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='异常分析表';
+
+CREATE TABLE `warningRecord` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '预警记录ID',
+  `exceptionId` BIGINT NOT NULL COMMENT '异常记录ID',
+  `type` VARCHAR(50) NOT NULL COMMENT '预警类型',
+  `level` VARCHAR(20) NOT NULL COMMENT '预警等级',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'UNPROCESSED' COMMENT '预警状态',
+  `sendTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  UNIQUE KEY `ukWarningRecordExceptionId` (`exceptionId`),
+  KEY `idxWarningRecordExceptionId` (`exceptionId`),
+  CONSTRAINT `fkWarningRecordException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警记录表';
+
+CREATE TABLE `reviewRecord` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '复核记录ID',
+  `exceptionId` BIGINT NOT NULL COMMENT '异常记录ID',
+  `reviewUserId` BIGINT NOT NULL COMMENT '复核用户ID',
+  `result` VARCHAR(20) NOT NULL COMMENT '复核结果',
+  `comment` VARCHAR(255) DEFAULT NULL COMMENT '复核意见',
+  `reviewTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '复核时间',
+  KEY `idxReviewRecordExceptionId` (`exceptionId`),
+  CONSTRAINT `fkReviewRecordException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`),
+  CONSTRAINT `fkReviewRecordUser` FOREIGN KEY (`reviewUserId`) REFERENCES `user` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='复核记录表';
+
+CREATE TABLE `operationLog` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
+  `userId` BIGINT DEFAULT NULL COMMENT '用户ID',
+  `type` VARCHAR(50) NOT NULL COMMENT '操作类型',
+  `content` VARCHAR(255) NOT NULL COMMENT '操作内容',
+  `operationTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  KEY `idxOperationLogUserTime` (`userId`, `operationTime`),
+  CONSTRAINT `fkOperationLogUser` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+INSERT INTO `department` (`name`, `description`) VALUES
+('综合管理部', '默认管理部门'),
+('技术部', '技术研发部门'),
+('行政部', '行政支持部门');
+
+INSERT INTO `role` (`code`, `name`, `description`, `status`) VALUES
+('ADMIN', '管理员', '系统管理员角色', 1),
+('EMPLOYEE', '员工', '普通员工角色', 1);
+
+INSERT INTO `device` (`id`, `name`, `location`, `status`, `description`) VALUES
+('DEV-001', '前台考勤机1', '办公区A', 1, '默认正常设备'),
+('DEV-002', '前台考勤机2', '办公区B', 1, '默认正常设备'),
+('DEV-009', '临时设备', '外部区域', 1, '用于异常场景测试');
+
+INSERT INTO `rule` (`name`, `startTime`, `endTime`, `lateThreshold`, `earlyThreshold`, `repeatLimit`, `status`) VALUES
+('默认考勤规则', '09:00:00', '18:00:00', 10, 10, 3, 1);
