@@ -72,6 +72,21 @@ CREATE TABLE `rule` (
   UNIQUE KEY `ukRuleName` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='考勤规则表';
 
+CREATE TABLE `promptTemplate` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '提示词模板ID',
+  `code` VARCHAR(50) NOT NULL COMMENT '模板编码',
+  `name` VARCHAR(100) NOT NULL COMMENT '模板名称',
+  `sceneType` VARCHAR(50) NOT NULL COMMENT '适用场景',
+  `version` VARCHAR(50) NOT NULL COMMENT '模板版本',
+  `content` TEXT NOT NULL COMMENT '模板内容',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'ENABLED' COMMENT '模板状态',
+  `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `ukPromptTemplateCodeVersion` (`code`, `version`),
+  KEY `idxPromptTemplateSceneTypeStatus` (`sceneType`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='提示词模板表';
+
 CREATE TABLE `attendanceRecord` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '打卡记录ID',
   `userId` BIGINT NOT NULL COMMENT '用户ID',
@@ -108,11 +123,17 @@ CREATE TABLE `attendanceException` (
 CREATE TABLE `exceptionAnalysis` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '分析结果ID',
   `exceptionId` BIGINT NOT NULL COMMENT '异常记录ID',
+  `promptTemplateId` BIGINT DEFAULT NULL COMMENT '提示词模板ID',
   `inputSummary` TEXT DEFAULT NULL COMMENT '输入摘要',
   `modelResult` TEXT DEFAULT NULL COMMENT '模型输出',
+  `modelConclusion` VARCHAR(100) DEFAULT NULL COMMENT '模型结构化结论',
   `confidenceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '置信度',
   `decisionReason` TEXT DEFAULT NULL COMMENT '判定依据',
   `suggestion` VARCHAR(255) DEFAULT NULL COMMENT '处理建议',
+  `reasonSummary` TEXT DEFAULT NULL COMMENT '理由摘要',
+  `actionSuggestion` VARCHAR(255) DEFAULT NULL COMMENT '行动建议',
+  `similarCaseSummary` TEXT DEFAULT NULL COMMENT '相似案例摘要',
+  `promptVersion` VARCHAR(50) DEFAULT NULL COMMENT '提示词版本',
   `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   UNIQUE KEY `ukExceptionAnalysisExceptionId` (`exceptionId`),
   CONSTRAINT `fkExceptionAnalysisException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`)
@@ -124,6 +145,10 @@ CREATE TABLE `warningRecord` (
   `type` VARCHAR(50) NOT NULL COMMENT '预警类型',
   `level` VARCHAR(20) NOT NULL COMMENT '预警等级',
   `status` VARCHAR(20) NOT NULL DEFAULT 'UNPROCESSED' COMMENT '预警状态',
+  `priorityScore` DECIMAL(5,2) DEFAULT NULL COMMENT '优先级分值',
+  `aiSummary` TEXT DEFAULT NULL COMMENT 'AI预警摘要',
+  `disposeSuggestion` VARCHAR(255) DEFAULT NULL COMMENT '处置建议',
+  `decisionSource` VARCHAR(20) NOT NULL DEFAULT 'MODEL_FUSION' COMMENT '决策来源',
   `sendTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
   UNIQUE KEY `ukWarningRecordExceptionId` (`exceptionId`),
   KEY `idxWarningRecordExceptionId` (`exceptionId`),
@@ -136,11 +161,43 @@ CREATE TABLE `reviewRecord` (
   `reviewUserId` BIGINT NOT NULL COMMENT '复核用户ID',
   `result` VARCHAR(20) NOT NULL COMMENT '复核结果',
   `comment` VARCHAR(255) DEFAULT NULL COMMENT '复核意见',
+  `aiReviewSuggestion` TEXT DEFAULT NULL COMMENT 'AI复核建议',
+  `similarCaseSummary` TEXT DEFAULT NULL COMMENT '相似案例摘要',
+  `feedbackTag` VARCHAR(50) DEFAULT NULL COMMENT '反馈标签',
+  `strategyFeedback` VARCHAR(255) DEFAULT NULL COMMENT '策略反馈说明',
   `reviewTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '复核时间',
   KEY `idxReviewRecordExceptionId` (`exceptionId`),
   CONSTRAINT `fkReviewRecordException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`),
   CONSTRAINT `fkReviewRecordUser` FOREIGN KEY (`reviewUserId`) REFERENCES `user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='复核记录表';
+
+CREATE TABLE `modelCallLog` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '模型调用日志ID',
+  `businessType` VARCHAR(50) NOT NULL COMMENT '业务类型',
+  `businessId` BIGINT NOT NULL COMMENT '业务编号',
+  `promptTemplateId` BIGINT DEFAULT NULL COMMENT '提示词模板ID',
+  `inputSummary` TEXT DEFAULT NULL COMMENT '输入摘要',
+  `outputSummary` TEXT DEFAULT NULL COMMENT '输出摘要',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'SUCCESS' COMMENT '调用状态',
+  `latencyMs` INT DEFAULT NULL COMMENT '耗时毫秒数',
+  `errorMessage` VARCHAR(255) DEFAULT NULL COMMENT '错误信息',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxModelCallLogBusiness` (`businessType`, `businessId`),
+  KEY `idxModelCallLogPromptTemplateId` (`promptTemplateId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型调用日志表';
+
+CREATE TABLE `decisionTrace` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '决策追踪ID',
+  `businessType` VARCHAR(50) NOT NULL COMMENT '业务类型',
+  `businessId` BIGINT NOT NULL COMMENT '业务编号',
+  `ruleResult` TEXT DEFAULT NULL COMMENT '规则结果',
+  `modelResult` TEXT DEFAULT NULL COMMENT '模型结果',
+  `finalDecision` TEXT DEFAULT NULL COMMENT '最终决策',
+  `confidenceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '决策置信度',
+  `decisionReason` TEXT DEFAULT NULL COMMENT '决策依据',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxDecisionTraceBusiness` (`businessType`, `businessId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='决策追踪表';
 
 CREATE TABLE `operationLog` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '日志ID',
