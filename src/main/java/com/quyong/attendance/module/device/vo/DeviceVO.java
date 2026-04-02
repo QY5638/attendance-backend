@@ -2,18 +2,18 @@ package com.quyong.attendance.module.device.vo;
 
 public class DeviceVO {
 
-    private String id;
+    private String deviceId;
     private String name;
     private String location;
     private Integer status;
     private String description;
 
-    public String getId() {
-        return id;
+    public String getDeviceId() {
+        return deviceId;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setDeviceId(String deviceId) {
+        this.deviceId = deviceId;
     }
 
     public String getName() {
