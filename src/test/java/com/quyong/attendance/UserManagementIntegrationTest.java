@@ -43,6 +43,8 @@ class UserManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM attendanceRecord");
+        jdbcTemplate.execute("DELETE FROM device");
         jdbcTemplate.execute("DELETE FROM user");
         jdbcTemplate.execute("DELETE FROM department");
         jdbcTemplate.execute("DELETE FROM role");
