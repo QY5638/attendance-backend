@@ -8,9 +8,9 @@ SET NAMES utf8mb4;
 
 -- 测试用户数据
 INSERT IGNORE INTO `user` (`id`, `username`, `password`, `realName`, `gender`, `phone`, `deptId`, `roleId`, `status`, `createTime`) VALUES
-(9001, 'admin', '123456', '系统管理员', '男', '13800000001', 1, 1, 1, '2026-03-01 08:00:00'),
-(1001, 'zhangsan', '123456', '张三', '男', '13800000002', 2, 2, 1, '2026-03-01 08:10:00'),
-(1002, 'lisi', '123456', '李四', '女', '13800000003', 3, 2, 1, '2026-03-01 08:20:00');
+(9001, 'admin', '$2a$10$DII2rUub7WSmcTFOa/4AtumHq9r3yDGwQ4gHW1pvyx51.dE.Abliu', '系统管理员', '男', '13800000001', 1, 1, 1, '2026-03-01 08:00:00'),
+(1001, 'zhangsan', '$2a$10$TiGjwQPnktIxrPqz6JoTq..Ur4rmqn9zDtlvRvbZWIqcSDXGLQJZm', '张三', '男', '13800000002', 2, 2, 1, '2026-03-01 08:10:00'),
+(1002, 'lisi', '$2a$10$Cw71Sz28BSmh1fcOBJIAXOagYeMZjJRl6UEU4n8kQMGESv3RgL0SC', '李四', '女', '13800000003', 3, 2, 1, '2026-03-01 08:20:00');
 
 -- 测试人脸特征数据
 INSERT IGNORE INTO `faceFeature` (`id`, `userId`, `featureData`, `featureHash`, `encryptFlag`, `createTime`) VALUES
