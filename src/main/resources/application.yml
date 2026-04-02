@@ -5,9 +5,6 @@ spring:
     active: dev
   jackson:
     default-property-inclusion: non_null
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 
 server:
   port: 8080
