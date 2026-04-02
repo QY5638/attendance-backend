@@ -2,6 +2,7 @@ package com.quyong.attendance.common.exception;
 
 import com.quyong.attendance.common.api.Result;
 import com.quyong.attendance.common.api.ResultCode;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,6 +21,11 @@ public class GlobalExceptionHandler {
                 ? ResultCode.BAD_REQUEST.getMessage()
                 : exception.getBindingResult().getAllErrors().get(0).getDefaultMessage();
         return new Result<Object>(ResultCode.BAD_REQUEST.getCode(), message, null);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public Result<Object> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
+        return new Result<Object>(ResultCode.BAD_REQUEST.getCode(), "请求参数错误", null);
     }
 
     @ExceptionHandler(Exception.class)

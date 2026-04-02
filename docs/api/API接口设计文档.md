@@ -51,29 +51,120 @@
 }
 ```
 
-## 3. 用户管理接口
+## 3. 用户与部门管理接口
 
 ### 3.1 查询员工列表
 - 路径：`GET /api/user/list`
+
+- 查询参数：
+  - `keyword`：可选，按账号或姓名模糊查询
+  - `deptId`：可选，按部门筛选
+  - `status`：可选，按状态筛选，`1` 为启用，`0` 为禁用
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 1001,
+      "username": "zhangsan",
+      "realName": "张三",
+      "gender": "男",
+      "phone": "13800000000",
+      "deptId": 2,
+      "roleId": 2,
+      "status": 1,
+      "createTime": "2026-04-01T09:00:00"
+    }
+  ]
+}
+```
 
 ### 3.2 新增员工
 - 路径：`POST /api/user/add`
 
 ```json
 {
-  "username": "zhangsan",
-  "realName": "张三",
-  "phone": "13800000000",
+  "username": "wangwu",
+  "password": "123456",
+  "realName": "王五",
+  "gender": "男",
+  "phone": "13800000001",
   "deptId": 1,
-  "roleId": 2
+  "roleId": 2,
+  "status": 1
 }
 ```
 
 ### 3.3 修改员工
 - 路径：`PUT /api/user/update`
 
+- 说明：`password` 为可选字段；未传或为空白时保留原密码，传入有效值时按新密码更新。
+
+```json
+{
+  "id": 1001,
+  "username": "zhangsan",
+  "password": "654321",
+  "realName": "张三",
+  "gender": "男",
+  "phone": "13800000000",
+  "deptId": 2,
+  "roleId": 2,
+  "status": 1
+}
+```
+
 ### 3.4 删除员工
 - 路径：`DELETE /api/user/{id}`
+
+### 3.5 查询部门列表
+- 路径：`GET /api/department/list`
+- 查询参数：`keyword`，可选，用于按部门名称模糊查询
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "name": "研发部",
+      "description": "负责系统研发"
+    }
+  ]
+}
+```
+
+### 3.6 新增部门
+- 路径：`POST /api/department/add`
+
+```json
+{
+  "name": "财务部",
+  "description": "负责财务管理"
+}
+```
+
+### 3.7 修改部门
+- 路径：`PUT /api/department/update`
+
+```json
+{
+  "id": 2,
+  "name": "人力资源部",
+  "description": "负责人力资源与培训"
+}
+```
+
+### 3.8 删除部门
+- 路径：`DELETE /api/department/{id}`
+- 业务约束：当部门仍被 `user.deptId` 引用时，返回 `code=400`，消息为 `部门下存在关联用户，不能删除`
 
 ## 4. 人脸与打卡接口
 
