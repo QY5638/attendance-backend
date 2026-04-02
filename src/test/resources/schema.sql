@@ -12,6 +12,14 @@ CREATE TABLE role (
     status TINYINT NOT NULL DEFAULT 1
 );
 
+CREATE TABLE device (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    location VARCHAR(255),
+    status TINYINT NOT NULL DEFAULT 1,
+    description VARCHAR(255)
+);
+
 CREATE TABLE user (
     id BIGINT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -25,6 +33,21 @@ CREATE TABLE user (
     createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user_department FOREIGN KEY (deptId) REFERENCES department (id),
     CONSTRAINT fk_user_role FOREIGN KEY (roleId) REFERENCES role (id)
+);
+
+CREATE TABLE attendanceRecord (
+    id BIGINT PRIMARY KEY,
+    userId BIGINT NOT NULL,
+    checkTime TIMESTAMP NOT NULL,
+    checkType VARCHAR(20) NOT NULL,
+    deviceId VARCHAR(64) NOT NULL,
+    ipAddr VARCHAR(64),
+    location VARCHAR(255),
+    faceScore DECIMAL(5,2),
+    status VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attendance_user FOREIGN KEY (userId) REFERENCES user (id),
+    CONSTRAINT fk_attendance_device FOREIGN KEY (deviceId) REFERENCES device (id)
 );
 
 CREATE UNIQUE INDEX uk_role_code ON role (code);

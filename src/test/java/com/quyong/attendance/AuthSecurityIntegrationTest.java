@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -48,6 +49,12 @@ class AuthSecurityIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        resetAuthTestData();
+    }
+
+    private void resetAuthTestData() {
+        jdbcTemplate.execute("DELETE FROM attendanceRecord");
+        jdbcTemplate.execute("DELETE FROM device");
         jdbcTemplate.execute("DELETE FROM user");
         jdbcTemplate.execute("DELETE FROM role");
 
@@ -80,6 +87,31 @@ class AuthSecurityIntegrationTest {
         insertUser(1001L, "zhangsan", "张三", 2L, 1, "123456");
         insertUser(1002L, "disabled", "禁用用户", 2L, 0, "123456");
         insertUser(1003L, "roleDisabled", "禁用角色用户", 3L, 1, "123456");
+    }
+
+    @Test
+    void shouldResetAuthTestDataWhenAttendanceRecordExists() {
+        jdbcTemplate.update(
+                "INSERT INTO device (id, name, location, status, description) VALUES (?, ?, ?, ?, ?)",
+                "DEV-CI-001",
+                "CI设备",
+                "CI环境",
+                1,
+                "用于测试数据重置"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceRecord (id, userId, checkTime, checkType, deviceId, ipAddr, location, faceScore, status, createTime) VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                900001L,
+                1001L,
+                "IN",
+                "DEV-CI-001",
+                "127.0.0.1",
+                "CI环境",
+                99.00,
+                "NORMAL"
+        );
+
+        assertDoesNotThrow(this::resetAuthTestData);
     }
 
     @Test

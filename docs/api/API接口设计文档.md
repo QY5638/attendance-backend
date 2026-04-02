@@ -166,6 +166,84 @@
 - 路径：`DELETE /api/department/{id}`
 - 业务约束：当部门仍被 `user.deptId` 引用时，返回 `code=400`，消息为 `部门下存在关联用户，不能删除`
 
+### 3.9 查询设备列表
+- 路径：`GET /api/device/list`
+- 查询参数：
+  - `keyword`：可选，按设备编号、设备名称、地点模糊查询
+  - `status`：可选，按状态筛选，`1` 为启用，`0` 为停用
+
+响应示例：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "deviceId": "DEV-001",
+      "name": "前台考勤机1",
+      "location": "办公区A",
+      "status": 1,
+      "description": "默认正常设备"
+    }
+  ]
+}
+```
+
+### 3.10 新增设备
+- 路径：`POST /api/device/add`
+- 业务约束：
+  - `deviceId` 必填且唯一
+  - `name` 必填
+  - `status` 为空时默认写入 `1`
+  - `status` 仅允许 `0` 或 `1`
+
+```json
+{
+  "deviceId": "DEV-010",
+  "name": "后门考勤机",
+  "location": "办公区C",
+  "description": "新增设备"
+}
+```
+
+### 3.11 修改设备
+- 路径：`PUT /api/device/update`
+- 业务约束：
+  - `deviceId` 必填，接口通过该字段定位已有设备
+  - 本接口不提供设备编号变更能力
+  - `name` 必填
+  - `status` 如传入，仅允许 `0` 或 `1`
+
+```json
+{
+  "deviceId": "DEV-002",
+  "name": "二号考勤机",
+  "location": "办公区B-北侧",
+  "status": 0,
+  "description": "调整位置"
+}
+```
+
+### 3.12 修改设备状态
+- 路径：`PUT /api/device/status`
+- 业务约束：
+  - `deviceId` 必填
+  - `status` 必填，且仅允许 `0` 或 `1`
+
+```json
+{
+  "deviceId": "DEV-009",
+  "status": 1
+}
+```
+
+### 3.13 删除设备
+- 路径：`DELETE /api/device/{deviceId}`
+- 业务约束：
+  - 设备不存在时返回 `code=400`，消息为 `设备不存在`
+  - 设备已被 `attendanceRecord.deviceId` 引用时，返回 `code=400`，消息为 `设备已关联打卡记录，不能删除`
+
 ## 4. 人脸与打卡接口
 
 ### 4.1 人脸录入
