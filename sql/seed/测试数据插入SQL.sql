@@ -26,6 +26,10 @@ INSERT IGNORE INTO `attendanceRecord` (`id`, `userId`, `checkTime`, `checkType`,
 (2004, 1002, '2026-03-26 09:16:00', 'IN', 'DEV-002', '192.168.1.102', '办公区B', 95.20, 'ABNORMAL', '2026-03-26 09:16:00'),
 (2005, 1001, '2026-03-26 09:00:00', 'IN', 'DEV-001', '192.168.1.101', '办公区A', 96.40, 'ABNORMAL', '2026-03-26 09:00:00');
 
+-- 测试补卡申请数据
+INSERT IGNORE INTO `attendanceRepair` (`id`, `userId`, `checkType`, `checkTime`, `repairReason`, `status`, `recordId`, `createTime`) VALUES
+(2101, 1001, 'IN', '2026-03-27 09:03:00', '设备故障未成功打卡', 'PENDING', NULL, '2026-03-27 09:10:00');
+
 -- 测试异常记录数据
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`) VALUES
 (3001, 2003, 1002, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '疑似代打卡，设备与地点异常且人脸分数偏低', 'REVIEWED', '2026-03-26 08:59:00'),

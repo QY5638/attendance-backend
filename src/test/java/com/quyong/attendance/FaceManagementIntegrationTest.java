@@ -42,6 +42,7 @@ class FaceManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM attendanceRepair");
         jdbcTemplate.execute("DELETE FROM faceFeature");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
         jdbcTemplate.execute("DELETE FROM user");

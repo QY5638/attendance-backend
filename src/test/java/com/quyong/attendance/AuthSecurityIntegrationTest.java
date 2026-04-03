@@ -53,6 +53,7 @@ class AuthSecurityIntegrationTest {
     }
 
     private void resetAuthTestData() {
+        jdbcTemplate.execute("DELETE FROM attendanceRepair");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
         jdbcTemplate.execute("DELETE FROM device");
         jdbcTemplate.execute("DELETE FROM user");

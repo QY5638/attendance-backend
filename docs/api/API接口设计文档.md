@@ -326,6 +326,13 @@
 
 ### 4.3 提交打卡
 - 路径：`POST /api/attendance/checkin`
+- 业务约束：
+  - `userId`、`checkType`、`deviceId`、`ipAddr`、`location`、`imageData` 必填
+  - `checkType` 仅允许 `IN` 或 `OUT`
+  - 员工只允许为本人提交打卡，管理员可代为提交
+  - 打卡时直接复用 `POST /api/face/verify` 的验证结果
+  - 设备停用时返回 `code=400`，消息为 `设备已停用，不能打卡`
+  - 未录入人脸或验证失败时返回人脸模块已有提示，不生成打卡记录
 
 ```json
 {
@@ -333,9 +340,22 @@
   "checkType": "IN",
   "deviceId": "DEV-001",
   "ipAddr": "192.168.1.10",
-  "location": "办公区A"
+  "location": "办公区A",
+  "imageData": "base64..."
 }
 ```
+
+响应字段要点：
+- `recordId`
+- `userId`
+- `checkTime`
+- `checkType`
+- `deviceId`
+- `location`
+- `faceScore`
+- `threshold`
+- `status`
+- `message`
 
 ## 5. 异常检测接口
 
@@ -658,6 +678,7 @@
 
 ### 9.6 查询个人考勤记录
 - 路径：`GET /api/attendance/record/{userId}`
+- 业务约束：员工只允许查询本人记录，管理员可查询任意员工记录
 
 查询参数建议：
 - 路径参数：`userId`
@@ -678,6 +699,7 @@
 
 ### 9.7 查询考勤记录列表
 - 路径：`GET /api/attendance/list`
+- 业务约束：仅管理员可访问
 
 查询参数建议：
 - `pageNum`
@@ -692,6 +714,7 @@
 返回字段要点：
 - `id`
 - `userId`
+- `realName`
 - `checkTime`
 - `checkType`
 - `deviceId`
@@ -701,6 +724,11 @@
 
 ### 9.8 提交补卡申请
 - 路径：`POST /api/attendance/repair`
+- 业务约束：
+  - 成功提交后生成一条 `status=PENDING` 的补卡申请记录
+  - 员工只允许为本人提交补卡申请，管理员可代为提交
+  - 若同一用户、同一补卡类型、同一补卡时间已存在待处理申请，则返回 `code=400`，消息为 `补卡申请已存在，请勿重复提交`
+  - 若同一时间点已存在正式打卡记录，则返回 `code=400`，消息为 `该时间点已存在打卡记录，无需补卡`
 
 ```json
 {

@@ -63,5 +63,20 @@ CREATE TABLE attendanceRecord (
     CONSTRAINT fk_attendance_device FOREIGN KEY (deviceId) REFERENCES device (id)
 );
 
+CREATE TABLE attendanceRepair (
+    id BIGINT PRIMARY KEY,
+    userId BIGINT NOT NULL,
+    checkType VARCHAR(20) NOT NULL,
+    checkTime TIMESTAMP NOT NULL,
+    repairReason VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    recordId BIGINT,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attendance_repair_user FOREIGN KEY (userId) REFERENCES user (id),
+    CONSTRAINT fk_attendance_repair_record FOREIGN KEY (recordId) REFERENCES attendanceRecord (id)
+);
+
 CREATE UNIQUE INDEX uk_role_code ON role (code);
 CREATE UNIQUE INDEX uk_user_username ON user (username);
+CREATE INDEX idx_attendance_repair_user_time ON attendanceRepair (userId, checkTime);
+CREATE UNIQUE INDEX uk_attendance_repair_pending ON attendanceRepair (userId, checkType, checkTime, status);
