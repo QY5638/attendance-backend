@@ -282,6 +282,11 @@
 
 ### 4.1 人脸录入
 - 路径：`POST /api/face/register`
+- 业务约束：
+  - `userId` 必填，且必须对应已存在员工
+  - `imageData` 必填
+  - 同一员工重复录入时新增一条 `faceFeature` 记录，验证始终只取最新一条模板
+  - 不直接返回原始特征内容
 
 ```json
 {
@@ -290,8 +295,34 @@
 }
 ```
 
+响应字段要点：
+- `userId`
+- `registered`
+- `message`
+- `createTime`
+
 ### 4.2 人脸验证
 - 路径：`POST /api/face/verify`
+- 业务约束：
+  - `userId` 必填，且必须对应已存在员工
+  - `imageData` 必填
+  - 未录入人脸时返回 `registered=false`
+  - 验证失败时返回 `matched=false`
+
+```json
+{
+  "userId": 1001,
+  "imageData": "base64..."
+}
+```
+
+响应字段要点：
+- `userId`
+- `registered`
+- `matched`
+- `faceScore`
+- `threshold`
+- `message`
 
 ### 4.3 提交打卡
 - 路径：`POST /api/attendance/checkin`

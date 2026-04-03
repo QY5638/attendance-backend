@@ -6,6 +6,8 @@ import com.quyong.attendance.module.department.controller.DepartmentController;
 import com.quyong.attendance.module.department.service.impl.DepartmentServiceImpl;
 import com.quyong.attendance.module.device.controller.DeviceController;
 import com.quyong.attendance.module.device.service.impl.DeviceServiceImpl;
+import com.quyong.attendance.module.face.controller.FaceController;
+import com.quyong.attendance.module.face.service.impl.FaceServiceImpl;
 import com.quyong.attendance.module.role.controller.RoleController;
 import com.quyong.attendance.module.role.service.impl.RoleServiceImpl;
 import com.quyong.attendance.module.user.controller.UserController;
@@ -37,5 +39,7 @@ class ModuleSkeletonBeansTest {
         assertNotNull(applicationContext.getBean(RoleServiceImpl.class));
         assertNotNull(applicationContext.getBean(DeviceController.class));
         assertNotNull(applicationContext.getBean(DeviceServiceImpl.class));
+        assertNotNull(applicationContext.getBean(FaceController.class));
+        assertNotNull(applicationContext.getBean(FaceServiceImpl.class));
     }
 }

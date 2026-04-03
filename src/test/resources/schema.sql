@@ -35,6 +35,19 @@ CREATE TABLE user (
     CONSTRAINT fk_user_role FOREIGN KEY (roleId) REFERENCES role (id)
 );
 
+CREATE TABLE faceFeature (
+    id BIGINT PRIMARY KEY,
+    userId BIGINT NOT NULL,
+    featureData CLOB NOT NULL,
+    featureHash VARCHAR(128) NOT NULL,
+    encryptFlag INT NOT NULL DEFAULT 1,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_face_feature_user FOREIGN KEY (userId) REFERENCES user (id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX uk_face_feature_hash ON faceFeature (featureHash);
+CREATE INDEX idx_face_feature_user_time ON faceFeature (userId, createTime);
+
 CREATE TABLE attendanceRecord (
     id BIGINT PRIMARY KEY,
     userId BIGINT NOT NULL,
