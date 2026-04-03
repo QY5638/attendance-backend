@@ -19,6 +19,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -41,5 +42,16 @@ class ModuleSkeletonBeansTest {
         assertNotNull(applicationContext.getBean(DeviceServiceImpl.class));
         assertNotNull(applicationContext.getBean(FaceController.class));
         assertNotNull(applicationContext.getBean(FaceServiceImpl.class));
+        assertBeanPresent("com.quyong.attendance.module.attendance.controller.AttendanceController");
+        assertBeanPresent("com.quyong.attendance.module.attendance.service.impl.AttendanceServiceImpl");
+    }
+
+    private void assertBeanPresent(String className) {
+        try {
+            Class<?> beanClass = Class.forName(className);
+            assertNotNull(applicationContext.getBean(beanClass));
+        } catch (ClassNotFoundException exception) {
+            fail("缺少模块 Bean: " + className);
+        }
     }
 }

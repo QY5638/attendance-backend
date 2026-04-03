@@ -104,6 +104,21 @@ CREATE TABLE `attendanceRecord` (
   CONSTRAINT `fkAttendanceRecordDevice` FOREIGN KEY (`deviceId`) REFERENCES `device` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='打卡记录表';
 
+CREATE TABLE `attendanceRepair` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '补卡申请ID',
+  `userId` BIGINT NOT NULL COMMENT '用户ID',
+  `checkType` VARCHAR(20) NOT NULL COMMENT '补卡类型',
+  `checkTime` DATETIME NOT NULL COMMENT '补卡时间',
+  `repairReason` VARCHAR(255) NOT NULL COMMENT '补卡原因',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '申请状态',
+  `recordId` BIGINT DEFAULT NULL COMMENT '关联打卡记录ID',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxAttendanceRepairUserTime` (`userId`, `checkTime`),
+  UNIQUE KEY `ukAttendanceRepairPending` (`userId`, `checkType`, `checkTime`, `status`),
+  CONSTRAINT `fkAttendanceRepairUser` FOREIGN KEY (`userId`) REFERENCES `user` (`id`),
+  CONSTRAINT `fkAttendanceRepairRecord` FOREIGN KEY (`recordId`) REFERENCES `attendanceRecord` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='补卡申请表';
+
 CREATE TABLE `attendanceException` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '异常记录ID',
   `recordId` BIGINT NOT NULL COMMENT '打卡记录ID',

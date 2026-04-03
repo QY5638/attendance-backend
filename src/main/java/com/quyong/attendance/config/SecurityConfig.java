@@ -36,6 +36,9 @@ public class SecurityConfig {
                 .and()
                 .authorizeRequests()
                 .antMatchers("/api/health", "/api/auth/login").permitAll()
+                .antMatchers("/api/attendance/checkin", "/api/attendance/record/**", "/api/attendance/repair")
+                .hasAnyRole("ADMIN", "EMPLOYEE")
+                .antMatchers("/api/attendance/list").hasRole("ADMIN")
                 .antMatchers("/api/**").hasRole("ADMIN")
                 .anyRequest().authenticated();
 

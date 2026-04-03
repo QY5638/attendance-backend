@@ -123,6 +123,8 @@
 - `user` 1 --- N `faceFeature`
 - `device` 1 --- N `attendanceRecord`
 - `user` 1 --- N `attendanceRecord`
+- `user` 1 --- N `attendanceRepair`
+- `attendanceRecord` 1 --- N `attendanceRepair`
 - `attendanceRecord` 1 --- N `attendanceException`
 - `attendanceException` 1 --- 1 `exceptionAnalysis`
 - `attendanceException` 1 --- 1 `warningRecord`
