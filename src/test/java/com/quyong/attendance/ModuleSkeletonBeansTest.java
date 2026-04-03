@@ -44,6 +44,12 @@ class ModuleSkeletonBeansTest {
         assertNotNull(applicationContext.getBean(FaceServiceImpl.class));
         assertBeanPresent("com.quyong.attendance.module.attendance.controller.AttendanceController");
         assertBeanPresent("com.quyong.attendance.module.attendance.service.impl.AttendanceServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.controller.ExceptionController");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.controller.RuleController");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.ExceptionAnalysisOrchestratorImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.ExceptionQueryServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.RuleServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.model.trace.service.impl.DecisionTraceServiceImpl");
     }
 
     private void assertBeanPresent(String className) {

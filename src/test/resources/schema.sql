@@ -76,6 +76,87 @@ CREATE TABLE attendanceRepair (
     CONSTRAINT fk_attendance_repair_record FOREIGN KEY (recordId) REFERENCES attendanceRecord (id)
 );
 
+CREATE TABLE rule (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    startTime TIME NOT NULL,
+    endTime TIME NOT NULL,
+    lateThreshold INT NOT NULL DEFAULT 10,
+    earlyThreshold INT NOT NULL DEFAULT 10,
+    repeatLimit INT NOT NULL DEFAULT 3,
+    status INT NOT NULL DEFAULT 1
+);
+
+CREATE TABLE attendanceException (
+    id BIGINT PRIMARY KEY,
+    recordId BIGINT NOT NULL,
+    userId BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    riskLevel VARCHAR(20) NOT NULL,
+    sourceType VARCHAR(20) NOT NULL DEFAULT 'RULE',
+    description VARCHAR(255),
+    processStatus VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_attendance_exception_record FOREIGN KEY (recordId) REFERENCES attendanceRecord (id),
+    CONSTRAINT fk_attendance_exception_user FOREIGN KEY (userId) REFERENCES user (id)
+);
+
+CREATE TABLE promptTemplate (
+    id BIGINT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    sceneType VARCHAR(50) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    content CLOB NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    remark VARCHAR(255),
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE exceptionAnalysis (
+    id BIGINT PRIMARY KEY,
+    exceptionId BIGINT NOT NULL,
+    promptTemplateId BIGINT,
+    inputSummary CLOB,
+    modelResult CLOB,
+    modelConclusion VARCHAR(100),
+    confidenceScore DECIMAL(5,2),
+    decisionReason CLOB,
+    suggestion VARCHAR(255),
+    reasonSummary CLOB,
+    actionSuggestion VARCHAR(255),
+    similarCaseSummary CLOB,
+    promptVersion VARCHAR(50),
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_exception_analysis_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id)
+);
+
+CREATE TABLE modelCallLog (
+    id BIGINT PRIMARY KEY,
+    businessType VARCHAR(50) NOT NULL,
+    businessId BIGINT NOT NULL,
+    promptTemplateId BIGINT,
+    inputSummary CLOB,
+    outputSummary CLOB,
+    status VARCHAR(20) NOT NULL,
+    latencyMs INT,
+    errorMessage VARCHAR(255),
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE decisionTrace (
+    id BIGINT PRIMARY KEY,
+    businessType VARCHAR(50) NOT NULL,
+    businessId BIGINT NOT NULL,
+    ruleResult CLOB,
+    modelResult CLOB,
+    finalDecision CLOB,
+    confidenceScore DECIMAL(5,2),
+    decisionReason CLOB,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE UNIQUE INDEX uk_role_code ON role (code);
 CREATE UNIQUE INDEX uk_user_username ON user (username);
 CREATE INDEX idx_attendance_repair_user_time ON attendanceRepair (userId, checkTime);
