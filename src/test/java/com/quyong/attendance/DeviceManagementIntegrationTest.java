@@ -384,7 +384,7 @@ class DeviceManagementIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备已关联打卡记录，不能删除"));
+                .andExpect(jsonPath("$.message").value("设备已关联打卡记录，不能删除，请先停用设备"));
     }
 
     @Test

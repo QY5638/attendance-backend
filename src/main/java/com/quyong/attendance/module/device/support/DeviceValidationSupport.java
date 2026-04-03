@@ -84,7 +84,7 @@ public class DeviceValidationSupport {
     public Device requireDeletableDevice(String deviceId) {
         Device device = requireExistingDevice(deviceId);
         if (deviceMapper.countAttendanceRecordByDeviceId(device.getId()) > 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "设备已关联打卡记录，不能删除");
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "设备已关联打卡记录，不能删除，请先停用设备");
         }
         return device;
     }

@@ -242,7 +242,7 @@
 - 路径：`DELETE /api/device/{deviceId}`
 - 业务约束：
   - 设备不存在时返回 `code=400`，消息为 `设备不存在`
-  - 设备已被 `attendanceRecord.deviceId` 引用时，返回 `code=400`，消息为 `设备已关联打卡记录，不能删除`
+  - 设备已被 `attendanceRecord.deviceId` 引用时，返回 `code=400`，消息为 `设备已关联打卡记录，不能删除，请先停用设备`
 
 ## 4. 人脸与打卡接口
 
