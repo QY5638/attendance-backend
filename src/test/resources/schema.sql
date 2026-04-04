@@ -182,9 +182,24 @@ CREATE TABLE decisionTrace (
     createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE warningRecord (
+    id BIGINT PRIMARY KEY,
+    exceptionId BIGINT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    level VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'UNPROCESSED',
+    priorityScore DECIMAL(5,2),
+    aiSummary CLOB,
+    disposeSuggestion VARCHAR(255),
+    decisionSource VARCHAR(20),
+    sendTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_warning_record_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id)
+);
+
 CREATE UNIQUE INDEX uk_role_code ON role (code);
 CREATE UNIQUE INDEX uk_user_username ON user (username);
 CREATE INDEX idx_attendance_repair_user_time ON attendanceRepair (userId, checkTime);
 CREATE UNIQUE INDEX uk_attendance_repair_pending ON attendanceRepair (userId, checkType, checkTime, status);
 CREATE UNIQUE INDEX uk_exception_type_code ON exceptionType (code);
 CREATE INDEX idx_review_record_exception_id ON reviewRecord (exceptionId);
+CREATE UNIQUE INDEX uk_warning_record_exception ON warningRecord (exceptionId);
