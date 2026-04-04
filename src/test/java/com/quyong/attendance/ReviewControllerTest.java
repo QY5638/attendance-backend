@@ -44,6 +44,7 @@ class ReviewControllerTest {
     @BeforeEach
     void setUp() {
         reset(attendanceExceptionMapper);
+        jdbcTemplate.execute("DELETE FROM operationLog");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
@@ -159,6 +160,13 @@ class ReviewControllerTest {
                 String.class
         );
         org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
+
+        Integer reviewLogCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'REVIEW'",
+                Integer.class,
+                9001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), reviewLogCount);
     }
 
     @Test
@@ -248,6 +256,13 @@ class ReviewControllerTest {
         );
         org.junit.jupiter.api.Assertions.assertEquals("FALSE_POSITIVE", feedbackTag);
         org.junit.jupiter.api.Assertions.assertEquals("建议降低此类规则敏感度", strategyFeedback);
+
+        Integer feedbackLogCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'REVIEW'",
+                Integer.class,
+                9001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), feedbackLogCount);
     }
 
     @Test

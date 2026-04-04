@@ -7,6 +7,7 @@ import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.auth.service.AuthService;
 import com.quyong.attendance.module.auth.store.TokenStore;
 import com.quyong.attendance.module.auth.vo.LoginVO;
+import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.role.entity.Role;
 import com.quyong.attendance.module.role.mapper.RoleMapper;
 import com.quyong.attendance.module.user.entity.User;
@@ -27,15 +28,18 @@ public class AuthServiceImpl implements AuthService {
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
     private final TokenStore tokenStore;
+    private final OperationLogService operationLogService;
 
     public AuthServiceImpl(UserMapper userMapper,
                            RoleMapper roleMapper,
                            PasswordEncoder passwordEncoder,
-                           TokenStore tokenStore) {
+                           TokenStore tokenStore,
+                           OperationLogService operationLogService) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.passwordEncoder = passwordEncoder;
         this.tokenStore = tokenStore;
+        this.operationLogService = operationLogService;
     }
 
     @Override
@@ -71,6 +75,7 @@ public class AuthServiceImpl implements AuthService {
         loginVO.setToken(token);
         loginVO.setRoleCode(role.getCode());
         loginVO.setRealName(user.getRealName());
+        operationLogService.save(user.getId(), "LOGIN", user.getRealName() + "登录系统");
         return loginVO;
     }
 }

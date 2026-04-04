@@ -41,6 +41,7 @@ class AttendanceManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM operationLog");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
@@ -87,6 +88,13 @@ class AttendanceManagementIntegrationTest {
                 .andExpect(jsonPath("$.data.faceScore").value(99.99))
                 .andExpect(jsonPath("$.data.threshold").value(85.0))
                 .andExpect(jsonPath("$.data.status").value("NORMAL"));
+
+        Integer checkinLogCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'CHECKIN'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), checkinLogCount);
     }
 
     @Test
@@ -209,6 +217,13 @@ class AttendanceManagementIntegrationTest {
                 .andExpect(jsonPath("$.data.checkType").value("IN"))
                 .andExpect(jsonPath("$.data.repairReason").value("设备故障未成功打卡"))
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        Integer repairLogCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'REPAIR'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), repairLogCount);
     }
 
     @Test

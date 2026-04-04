@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.quyong.attendance.common.api.PageResult;
 import com.quyong.attendance.common.api.ResultCode;
 import com.quyong.attendance.common.exception.BusinessException;
+import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.exceptiondetect.entity.AttendanceException;
 import com.quyong.attendance.module.exceptiondetect.entity.ExceptionAnalysis;
 import com.quyong.attendance.module.exceptiondetect.mapper.AttendanceExceptionMapper;
 import com.quyong.attendance.module.exceptiondetect.mapper.ExceptionAnalysisMapper;
+import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.warning.dto.RiskLevelQueryDTO;
 import com.quyong.attendance.module.warning.dto.RiskLevelUpdateDTO;
 import com.quyong.attendance.module.warning.dto.WarningQueryDTO;
@@ -21,6 +23,8 @@ import com.quyong.attendance.module.warning.vo.RiskLevelConfigVO;
 import com.quyong.attendance.module.warning.vo.WarningAdviceVO;
 import com.quyong.attendance.module.warning.vo.WarningVO;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -47,17 +51,20 @@ public class WarningServiceImpl implements WarningService {
     private final ExceptionAnalysisMapper exceptionAnalysisMapper;
     private final WarningValidationSupport warningValidationSupport;
     private final RiskLevelRegistry riskLevelRegistry;
+    private final OperationLogService operationLogService;
 
     public WarningServiceImpl(WarningRecordMapper warningRecordMapper,
                               AttendanceExceptionMapper attendanceExceptionMapper,
                               ExceptionAnalysisMapper exceptionAnalysisMapper,
                               WarningValidationSupport warningValidationSupport,
-                              RiskLevelRegistry riskLevelRegistry) {
+                              RiskLevelRegistry riskLevelRegistry,
+                              OperationLogService operationLogService) {
         this.warningRecordMapper = warningRecordMapper;
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.warningValidationSupport = warningValidationSupport;
         this.riskLevelRegistry = riskLevelRegistry;
+        this.operationLogService = operationLogService;
     }
 
     @Override
@@ -98,12 +105,14 @@ public class WarningServiceImpl implements WarningService {
     @Transactional
     public WarningVO reEvaluate(WarningReevaluateDTO dto) {
         WarningReevaluateDTO validatedDTO = warningValidationSupport.validateReevaluate(dto);
+        AuthUser authUser = currentAuthUser();
         WarningRecord warningRecord = requireExistingWarning(validatedDTO.getWarningId());
         AttendanceException attendanceException = requireExistingException(warningRecord.getExceptionId());
         ExceptionAnalysis analysis = findLatestAnalysis(attendanceException.getId());
         applySnapshot(warningRecord, attendanceException, analysis, warningRecord.getStatus());
         warningRecord.setSendTime(LocalDateTime.now());
         warningRecordMapper.updateById(warningRecord);
+        operationLogService.save(authUser.getUserId(), "WARNING", authUser.getRealName() + "重新评估预警" + warningRecord.getId());
         return toVO(warningRecord);
     }
 
@@ -234,5 +243,13 @@ public class WarningServiceImpl implements WarningService {
         vo.setDecisionSource(warningRecord.getDecisionSource());
         vo.setSendTime(warningRecord.getSendTime());
         return vo;
+    }
+
+    private AuthUser currentAuthUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthUser)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED.getCode(), ResultCode.UNAUTHORIZED.getMessage());
+        }
+        return (AuthUser) authentication.getPrincipal();
     }
 }

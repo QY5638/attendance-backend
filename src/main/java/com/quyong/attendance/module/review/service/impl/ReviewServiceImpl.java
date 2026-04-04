@@ -3,6 +3,7 @@ package com.quyong.attendance.module.review.service.impl;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.quyong.attendance.common.api.ResultCode;
 import com.quyong.attendance.common.exception.BusinessException;
+import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.exceptiondetect.entity.AttendanceException;
 import com.quyong.attendance.module.exceptiondetect.entity.ExceptionAnalysis;
 import com.quyong.attendance.module.exceptiondetect.mapper.AttendanceExceptionMapper;
@@ -17,6 +18,9 @@ import com.quyong.attendance.module.review.service.ReviewService;
 import com.quyong.attendance.module.review.support.ReviewValidationSupport;
 import com.quyong.attendance.module.review.vo.ReviewAssistantVO;
 import com.quyong.attendance.module.review.vo.ReviewRecordVO;
+import com.quyong.attendance.module.statistics.service.OperationLogService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,17 +34,20 @@ public class ReviewServiceImpl implements ReviewService {
     private final DecisionTraceService decisionTraceService;
     private final ReviewRecordMapper reviewRecordMapper;
     private final ReviewValidationSupport reviewValidationSupport;
+    private final OperationLogService operationLogService;
 
     public ReviewServiceImpl(AttendanceExceptionMapper attendanceExceptionMapper,
                              ExceptionAnalysisMapper exceptionAnalysisMapper,
                              DecisionTraceService decisionTraceService,
                              ReviewRecordMapper reviewRecordMapper,
-                             ReviewValidationSupport reviewValidationSupport) {
+                             ReviewValidationSupport reviewValidationSupport,
+                             OperationLogService operationLogService) {
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.decisionTraceService = decisionTraceService;
         this.reviewRecordMapper = reviewRecordMapper;
         this.reviewValidationSupport = reviewValidationSupport;
+        this.operationLogService = operationLogService;
     }
 
     @Override
@@ -106,12 +113,14 @@ public class ReviewServiceImpl implements ReviewService {
 
         attendanceException.setProcessStatus("REVIEWED");
         attendanceExceptionMapper.updateById(attendanceException);
+        operationLogService.save(reviewUserId, "REVIEW", currentAuthUser().getRealName() + "复核异常记录" + validatedDTO.getExceptionId());
         return toVO(reviewRecord);
     }
 
     @Override
     public void feedback(ReviewFeedbackDTO dto) {
         ReviewFeedbackDTO validatedDTO = reviewValidationSupport.validateFeedback(dto);
+        AuthUser authUser = currentAuthUser();
         ReviewRecord reviewRecord = reviewRecordMapper.selectById(validatedDTO.getReviewId());
         if (reviewRecord == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "复核记录不存在");
@@ -119,6 +128,7 @@ public class ReviewServiceImpl implements ReviewService {
         reviewRecord.setFeedbackTag(validatedDTO.getFeedbackTag());
         reviewRecord.setStrategyFeedback(validatedDTO.getStrategyFeedback());
         reviewRecordMapper.updateById(reviewRecord);
+        operationLogService.save(authUser.getUserId(), "REVIEW", authUser.getRealName() + "提交复核反馈" + validatedDTO.getReviewId());
     }
 
     private AttendanceException ensureAttendanceExceptionExists(Long exceptionId) {
@@ -152,5 +162,13 @@ public class ReviewServiceImpl implements ReviewService {
         vo.setStrategyFeedback(entity.getStrategyFeedback());
         vo.setReviewTime(entity.getReviewTime());
         return vo;
+    }
+
+    private AuthUser currentAuthUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthUser)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED.getCode(), ResultCode.UNAUTHORIZED.getMessage());
+        }
+        return (AuthUser) authentication.getPrincipal();
     }
 }

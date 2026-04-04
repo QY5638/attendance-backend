@@ -53,6 +53,7 @@ class AuthSecurityIntegrationTest {
     }
 
     private void resetAuthTestData() {
+        jdbcTemplate.execute("DELETE FROM operationLog");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
@@ -131,6 +132,13 @@ class AuthSecurityIntegrationTest {
                 .andExpect(jsonPath("$.data.token").isString())
                 .andExpect(jsonPath("$.data.roleCode").value("ADMIN"))
                 .andExpect(jsonPath("$.data.realName").value("系统管理员"));
+
+        Integer logCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'LOGIN'",
+                Integer.class,
+                9001L
+        );
+        assertTrue(logCount != null && logCount.intValue() == 1);
     }
 
     @Test

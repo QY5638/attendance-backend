@@ -22,6 +22,8 @@ import com.quyong.attendance.module.device.support.DeviceValidationSupport;
 import com.quyong.attendance.module.face.dto.FaceVerifyDTO;
 import com.quyong.attendance.module.face.service.FaceService;
 import com.quyong.attendance.module.face.vo.FaceVerifyVO;
+import com.quyong.attendance.module.statistics.service.OperationLogService;
+import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
@@ -43,25 +45,28 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserValidationSupport userValidationSupport;
     private final DeviceValidationSupport deviceValidationSupport;
     private final FaceService faceService;
+    private final OperationLogService operationLogService;
 
     public AttendanceServiceImpl(AttendanceRecordMapper attendanceRecordMapper,
                                  AttendanceRepairMapper attendanceRepairMapper,
                                  AttendanceValidationSupport attendanceValidationSupport,
                                  UserValidationSupport userValidationSupport,
                                  DeviceValidationSupport deviceValidationSupport,
-                                 FaceService faceService) {
+                                 FaceService faceService,
+                                 OperationLogService operationLogService) {
         this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceRepairMapper = attendanceRepairMapper;
         this.attendanceValidationSupport = attendanceValidationSupport;
         this.userValidationSupport = userValidationSupport;
         this.deviceValidationSupport = deviceValidationSupport;
         this.faceService = faceService;
+        this.operationLogService = operationLogService;
     }
 
     @Override
     public AttendanceCheckinVO checkin(AttendanceCheckinDTO dto) {
         AttendanceCheckinDTO validatedDTO = attendanceValidationSupport.validateCheckin(dto);
-        userValidationSupport.requireExistingUser(validatedDTO.getUserId());
+        User user = userValidationSupport.requireExistingUser(validatedDTO.getUserId());
         AuthUser authUser = currentAuthUser();
         if (!isAdmin(authUser) && !authUser.getUserId().equals(validatedDTO.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权为其他用户提交打卡");
@@ -102,6 +107,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         vo.setThreshold(faceVerifyVO.getThreshold());
         vo.setStatus(savedRecord.getStatus());
         vo.setMessage("打卡成功");
+        operationLogService.save(authUser.getUserId(), "CHECKIN", user.getRealName() + resolveCheckinText(savedRecord.getCheckType()));
         return vo;
     }
 
@@ -158,7 +164,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public AttendanceRepairVO repair(AttendanceRepairDTO dto) {
         AttendanceRepairDTO validatedDTO = attendanceValidationSupport.validateRepair(dto);
-        userValidationSupport.requireExistingUser(validatedDTO.getUserId());
+        User user = userValidationSupport.requireExistingUser(validatedDTO.getUserId());
         AuthUser authUser = currentAuthUser();
         if (!isAdmin(authUser) && !authUser.getUserId().equals(validatedDTO.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权为其他用户提交补卡申请");
@@ -193,7 +199,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         vo.setRepairReason(savedRepair.getRepairReason());
         vo.setStatus(savedRepair.getStatus());
         vo.setCreateTime(savedRepair.getCreateTime());
+        operationLogService.save(authUser.getUserId(), "REPAIR", user.getRealName() + "提交补卡申请");
         return vo;
+    }
+
+    private String resolveCheckinText(String checkType) {
+        if ("OUT".equals(checkType)) {
+            return "完成下班打卡";
+        }
+        return "完成上班打卡";
     }
 
     private AuthUser currentAuthUser() {

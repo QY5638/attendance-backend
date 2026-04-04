@@ -48,6 +48,8 @@ class WarningControllerTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM operationLog");
+        jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM warningRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
@@ -165,6 +167,13 @@ class WarningControllerTest {
                 String.class
         );
         assertEquals("PENDING", processStatus);
+
+        Integer warningLogCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'WARNING'",
+                Integer.class,
+                9001L
+        );
+        assertEquals(Integer.valueOf(1), warningLogCount);
     }
 
     @Test
