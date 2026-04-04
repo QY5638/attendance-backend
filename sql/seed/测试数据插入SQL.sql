@@ -36,6 +36,14 @@ INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `r
 (3002, 2004, 1002, 'LATE', 'MEDIUM', 'RULE', '超过上班时间阈值，判定为迟到', 'PENDING', '2026-03-26 09:16:10'),
 (3003, 2005, 1001, 'REPEAT_CHECK', 'MEDIUM', 'RULE', '短时间内重复打卡', 'PENDING', '2026-03-26 09:00:10');
 
+-- 测试异常类型配置数据
+INSERT IGNORE INTO `exceptionType` (`id`, `code`, `name`, `description`, `status`, `createTime`, `updateTime`) VALUES
+(7201, 'PROXY_CHECKIN', '疑似代打卡', '疑似由他人代为完成考勤打卡', 1, '2026-03-20 09:00:00', '2026-03-20 09:00:00'),
+(7202, 'LATE', '迟到', '超过上班时间阈值的异常打卡', 1, '2026-03-20 09:01:00', '2026-03-20 09:01:00'),
+(7203, 'EARLY_LEAVE', '早退', '早于下班时间阈值的异常打卡', 1, '2026-03-20 09:02:00', '2026-03-20 09:02:00'),
+(7204, 'REPEAT_CHECK', '重复打卡', '短时间内重复提交同类打卡', 1, '2026-03-20 09:03:00', '2026-03-20 09:03:00'),
+(7205, 'ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1, '2026-03-20 09:04:00', '2026-03-20 09:04:00');
+
 -- 测试异常分析数据
 INSERT IGNORE INTO `promptTemplate` (`id`, `code`, `name`, `sceneType`, `version`, `content`, `status`, `remark`, `createTime`, `updateTime`) VALUES
 (8001, 'COMPLEX_EXCEPTION', '复杂异常分析模板', 'EXCEPTION_ANALYSIS', 'v1.0', '请基于输入摘要、风险特征和历史记录输出结构化结论、风险等级、判定依据与处理建议。', 'ENABLED', '默认复杂异常分析模板', '2026-03-20 10:00:00', '2026-03-20 10:00:00'),
@@ -64,7 +72,9 @@ INSERT IGNORE INTO `modelCallLog` (`id`, `businessType`, `businessId`, `promptTe
 
 -- 测试决策追踪数据
 INSERT IGNORE INTO `decisionTrace` (`id`, `businessType`, `businessId`, `ruleResult`, `modelResult`, `finalDecision`, `confidenceScore`, `decisionReason`, `createTime`) VALUES
-(9501, 'ATTENDANCE_EXCEPTION', 3001, '规则层无法直接定性，仅命中设备异常和低分值特征', '模型判断为疑似代打卡，高风险，建议人工复核', '最终标记为高风险复杂异常并生成预警', 92.50, '规则特征与模型结论一致，提升至高风险并进入复核。', '2026-03-26 08:59:12');
+(9501, 'ATTENDANCE_EXCEPTION', 3001, '规则层无法直接定性，仅命中设备异常和低分值特征', '模型判断为疑似代打卡，高风险，建议人工复核', '最终标记为高风险复杂异常并生成预警', 92.50, '规则特征与模型结论一致，提升至高风险并进入复核。', '2026-03-26 08:59:12'),
+(9502, 'ATTENDANCE_EXCEPTION', 3002, '超过上班时间阈值', NULL, 'LATE', NULL, '规则已判定迟到，待管理员人工确认。', '2026-03-26 09:16:12'),
+(9503, 'ATTENDANCE_EXCEPTION', 3003, '短时间内重复打卡', NULL, 'REPEAT_CHECK', NULL, '规则已判定重复打卡，待管理员人工确认。', '2026-03-26 09:00:12');
 
 -- 测试操作日志数据
 INSERT IGNORE INTO `operationLog` (`id`, `userId`, `type`, `content`, `operationTime`) VALUES
