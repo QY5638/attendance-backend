@@ -479,8 +479,32 @@
 }
 ```
 
+返回字段要点：
+- `id`
+- `exceptionId`
+- `reviewUserId`
+- `reviewResult`
+- `reviewComment`
+- `aiReviewSuggestion`
+- `similarCaseSummary`
+- `reviewTime`
+
 ### 6.5 查询复核记录
 - 路径：`GET /api/review/{exceptionId}`
+
+说明：返回该异常的最新一条复核记录；若该异常尚无复核记录，则返回体中的 `data` 字段为空或省略。
+
+返回字段要点：
+- `id`
+- `exceptionId`
+- `reviewUserId`
+- `reviewResult`
+- `reviewComment`
+- `aiReviewSuggestion`
+- `similarCaseSummary`
+- `feedbackTag`
+- `strategyFeedback`
+- `reviewTime`
 
 ### 6.6 查询 AI 复核辅助信息
 - 路径：`GET /api/review/{exceptionId}/assistant`
@@ -501,6 +525,8 @@
   "strategyFeedback": "建议保留当前提示词模板并提高设备异常权重"
 }
 ```
+
+说明：该接口仅更新既有复核记录上的 `feedbackTag` 与 `strategyFeedback`，不回写预警表。
 
 ## 7. 统计分析接口
 

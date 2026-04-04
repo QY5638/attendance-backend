@@ -40,6 +40,7 @@ class RuleControllerTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
         jdbcTemplate.execute("DELETE FROM exceptionAnalysis");

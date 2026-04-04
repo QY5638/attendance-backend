@@ -132,6 +132,31 @@ CREATE TABLE exceptionAnalysis (
     CONSTRAINT fk_exception_analysis_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id)
 );
 
+CREATE TABLE reviewRecord (
+    id BIGINT PRIMARY KEY,
+    exceptionId BIGINT NOT NULL,
+    reviewUserId BIGINT NOT NULL,
+    result VARCHAR(20) NOT NULL,
+    comment VARCHAR(255),
+    aiReviewSuggestion CLOB,
+    similarCaseSummary CLOB,
+    feedbackTag VARCHAR(50),
+    strategyFeedback VARCHAR(255),
+    reviewTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_review_record_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id),
+    CONSTRAINT fk_review_record_user FOREIGN KEY (reviewUserId) REFERENCES user (id)
+);
+
+CREATE TABLE exceptionType (
+    id BIGINT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    status INT NOT NULL,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE modelCallLog (
     id BIGINT PRIMARY KEY,
     businessType VARCHAR(50) NOT NULL,
@@ -175,4 +200,6 @@ CREATE UNIQUE INDEX uk_role_code ON role (code);
 CREATE UNIQUE INDEX uk_user_username ON user (username);
 CREATE INDEX idx_attendance_repair_user_time ON attendanceRepair (userId, checkTime);
 CREATE UNIQUE INDEX uk_attendance_repair_pending ON attendanceRepair (userId, checkType, checkTime, status);
+CREATE UNIQUE INDEX uk_exception_type_code ON exceptionType (code);
+CREATE INDEX idx_review_record_exception_id ON reviewRecord (exceptionId);
 CREATE UNIQUE INDEX uk_warning_record_exception ON warningRecord (exceptionId);

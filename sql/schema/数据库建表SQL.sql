@@ -186,6 +186,18 @@ CREATE TABLE `reviewRecord` (
   CONSTRAINT `fkReviewRecordUser` FOREIGN KEY (`reviewUserId`) REFERENCES `user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='复核记录表';
 
+CREATE TABLE `exceptionType` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '异常类型配置ID',
+  `code` VARCHAR(50) NOT NULL COMMENT '异常类型编码',
+  `name` VARCHAR(100) NOT NULL COMMENT '异常类型名称',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '异常类型说明',
+  `status` INT NOT NULL DEFAULT 1 COMMENT '状态：1启用，0停用',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `ukExceptionTypeCode` (`code`),
+  KEY `idxExceptionTypeStatus` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='异常类型配置表';
+
 CREATE TABLE `modelCallLog` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '模型调用日志ID',
   `businessType` VARCHAR(50) NOT NULL COMMENT '业务类型',
@@ -240,3 +252,10 @@ INSERT INTO `device` (`id`, `name`, `location`, `status`, `description`) VALUES
 
 INSERT INTO `rule` (`name`, `startTime`, `endTime`, `lateThreshold`, `earlyThreshold`, `repeatLimit`, `status`) VALUES
 ('默认考勤规则', '09:00:00', '18:00:00', 10, 10, 3, 1);
+
+INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`) VALUES
+('PROXY_CHECKIN', '疑似代打卡', '疑似由他人代为完成考勤打卡', 1),
+('LATE', '迟到', '超过上班时间阈值的异常打卡', 1),
+('EARLY_LEAVE', '早退', '早于下班时间阈值的异常打卡', 1),
+('REPEAT_CHECK', '重复打卡', '短时间内重复提交同类打卡', 1),
+('ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1);
