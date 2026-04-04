@@ -62,13 +62,13 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldRegisterFaceWhenInputIsValid() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+    void shouldRegisterCurrentUserFaceWhenInputIsValidWithoutUserId() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"  face-image-001  \"}"))
+                        .content("{\"imageData\":\"  face-image-001  \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -109,19 +109,19 @@ class FaceManagementIntegrationTest {
 
     @Test
     void shouldKeepHistoryAndUseLatestFaceFeatureWhenUserRegistersAgain() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-old\"}"))
+                        .content("{\"imageData\":\"face-image-old\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-new\"}"))
+                        .content("{\"userId\":9001,\"imageData\":\"face-image-new\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
@@ -135,9 +135,10 @@ class FaceManagementIntegrationTest {
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-old\"}"))
+                        .content("{\"imageData\":\"face-image-old\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
                 .andExpect(jsonPath("$.data.registered").value(true))
                 .andExpect(jsonPath("$.data.matched").value(false))
                 .andExpect(jsonPath("$.data.message").value("人脸验证未通过"));
@@ -145,22 +146,23 @@ class FaceManagementIntegrationTest {
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-new\"}"))
+                        .content("{\"userId\":9001,\"imageData\":\"face-image-new\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
                 .andExpect(jsonPath("$.data.registered").value(true))
                 .andExpect(jsonPath("$.data.matched").value(true))
                 .andExpect(jsonPath("$.data.message").value("人脸验证通过"));
     }
 
     @Test
-    void shouldReturnUnregisteredWhenUserHasNoFaceTemplate() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+    void shouldReturnUnregisteredWhenCurrentUserHasNoFaceTemplate() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-verify\"}"))
+                        .content("{\"imageData\":\"face-image-verify\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.userId").value(1001))
@@ -172,22 +174,23 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldVerifyFaceWhenImageMatchesLatestTemplate() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+    void shouldVerifyCurrentUserFaceWhenImageMatchesLatestTemplate() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-match\"}"))
+                        .content("{\"imageData\":\"face-image-match\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-match\"}"))
+                        .content("{\"imageData\":\"face-image-match\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
                 .andExpect(jsonPath("$.data.registered").value(true))
                 .andExpect(jsonPath("$.data.matched").value(true))
                 .andExpect(jsonPath("$.data.faceScore").value(greaterThanOrEqualTo(85.0)))
@@ -196,22 +199,52 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldReturnMatchedFalseWhenImageDoesNotMatchLatestTemplate() throws Exception {
+    void shouldIgnoreRequestUserIdWhenRegisteringCurrentUserFace() throws Exception {
         String token = loginAndExtractToken("admin", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-origin\"}"))
+                        .content("{\"userId\":1001,\"imageData\":\"face-image-admin\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(9001))
+                .andExpect(jsonPath("$.data.registered").value(true))
+                .andExpect(jsonPath("$.data.message").value("人脸录入成功"));
+
+        Integer currentUserCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM faceFeature WHERE userId = ?",
+                Integer.class,
+                9001L
+        );
+        Integer requestedUserCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM faceFeature WHERE userId = ?",
+                Integer.class,
+                1001L
+        );
+
+        assertEquals(1, currentUserCount);
+        assertEquals(0, requestedUserCount);
+    }
+
+    @Test
+    void shouldReturnMatchedFalseWhenImageDoesNotMatchLatestTemplate() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/face/register")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"imageData\":\"face-image-origin\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-other\"}"))
+                        .content("{\"imageData\":\"face-image-other\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
                 .andExpect(jsonPath("$.data.registered").value(true))
                 .andExpect(jsonPath("$.data.matched").value(false))
                 .andExpect(jsonPath("$.data.faceScore").value(lessThan(85.0)))
@@ -220,65 +253,49 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldFailRegisterWhenUserIdIsNull() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+    void shouldIgnoreRequestUserIdWhenVerifyingCurrentUserFace() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
                         .content("{\"imageData\":\"face-image-001\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("用户编号不能为空"));
+                .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(post("/api/face/verify")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"userId\":9001,\"imageData\":\"face-image-001\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
+                .andExpect(jsonPath("$.data.registered").value(true))
+                .andExpect(jsonPath("$.data.matched").value(true))
+                .andExpect(jsonPath("$.data.message").value("人脸验证通过"));
     }
 
     @Test
     void shouldFailRegisterWhenImageDataIsBlank() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"   \"}"))
+                        .content("{\"imageData\":\"   \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("人脸图像不能为空"));
     }
 
     @Test
-    void shouldFailRegisterWhenUserDoesNotExist() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
-
-        mockMvc.perform(post("/api/face/register")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":4040,\"imageData\":\"face-image-001\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("用户不存在"));
-    }
-
-    @Test
-    void shouldFailVerifyWhenUserDoesNotExist() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
-
-        mockMvc.perform(post("/api/face/verify")
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":4040,\"imageData\":\"face-image-001\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("用户不存在"));
-    }
-
-    @Test
     void shouldReturnBadRequestWhenRegisterRequestBodyIsMalformed() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":}"))
+                        .content("{\"imageData\":}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("请求参数错误"));
@@ -286,12 +303,12 @@ class FaceManagementIntegrationTest {
 
     @Test
     void shouldReturnBadRequestWhenVerifyRequestBodyIsMalformed() throws Exception {
-        String token = loginAndExtractToken("admin", "123456");
+        String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/verify")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":}"))
+                        .content("{\"imageData\":}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("请求参数错误"));
@@ -308,16 +325,17 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldReturnForbiddenWhenEmployeeAccessesFaceApi() throws Exception {
+    void shouldAllowEmployeeAccessingFaceApi() throws Exception {
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"imageData\":\"face-image-001\"}"))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(403))
-                .andExpect(jsonPath("$.message").value("forbidden"));
+                        .content("{\"imageData\":\"face-image-employee\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value(1001))
+                .andExpect(jsonPath("$.data.registered").value(true));
     }
 
     private void insertRole(Long id, String code, String name) {

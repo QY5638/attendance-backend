@@ -70,14 +70,14 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
-    void shouldCheckInWhenFaceVerifyPasses() throws Exception {
+    void shouldCheckInWhenRequestBodyOmitsUserIdAndFaceVerifyPasses() throws Exception {
         insertFaceFeature(1001L, "face-image-checkin-success", 1101L, "hash-success-1101");
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.11\",\"location\":\"办公区A\",\"imageData\":\"face-image-checkin-success\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.11\",\"location\":\"办公区A\",\"imageData\":\"face-image-checkin-success\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -139,26 +139,42 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
-    void shouldRejectEmployeeCheckInForOtherUser() throws Exception {
-        insertFaceFeature(1002L, "face-image-for-lisi", 1104L, "hash-lisi-1104");
+    void shouldIgnoreRequestUserIdWhenEmployeeChecksIn() throws Exception {
+        insertFaceFeature(1001L, "face-image-for-zhangsan", 1104L, "hash-zhangsan-1104");
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.21\",\"location\":\"办公区A\",\"imageData\":\"face-image-for-lisi\"}"))
+                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.21\",\"location\":\"办公区A\",\"imageData\":\"face-image-for-zhangsan\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(403))
-                .andExpect(jsonPath("$.message").value("无权为其他用户提交打卡"));
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.data.userId").value(1001));
+
+        Integer currentUserCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceRecord WHERE userId = ?",
+                Integer.class,
+                1001L
+        );
+        Integer ignoredUserCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceRecord WHERE userId = ?",
+                Integer.class,
+                1002L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, currentUserCount);
+        org.junit.jupiter.api.Assertions.assertEquals(0, ignoredUserCount);
     }
 
     @Test
-    void shouldReturnOwnAttendanceRecordsForEmployee() throws Exception {
+    void shouldReturnCurrentUserRecordsFromRecordMe() throws Exception {
         insertAttendanceRecord(2001L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.50, "NORMAL");
         insertAttendanceRecord(2002L, 1001L, "2026-03-31 18:02:00", "OUT", "DEV-001", "办公区A", 98.80, "NORMAL");
+        insertAttendanceRecord(2003L, 1002L, "2026-03-31 09:03:00", "IN", "DEV-001", "办公区A", 97.10, "NORMAL");
         String token = loginAndExtractToken("zhangsan", "123456");
 
-        mockMvc.perform(get("/api/attendance/record/1001")
+        mockMvc.perform(get("/api/attendance/record/me")
                         .param("pageNum", "1")
                         .param("pageSize", "10")
                         .header("Authorization", "Bearer " + token))
@@ -167,6 +183,24 @@ class AttendanceManagementIntegrationTest {
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.records.length()").value(2))
+                .andExpect(jsonPath("$.data.records[0].userId").value(1001));
+    }
+
+    @Test
+    void shouldReturnSpecifiedUserRecordsForAdminFromCompatibleRecordPath() throws Exception {
+        insertAttendanceRecord(2001L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.50, "NORMAL");
+        insertAttendanceRecord(2002L, 1002L, "2026-03-31 09:03:00", "IN", "DEV-001", "办公区A", 97.10, "NORMAL");
+        String token = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/attendance/record/1001")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records.length()").value(1))
                 .andExpect(jsonPath("$.data.records[0].userId").value(1001));
     }
 
@@ -203,13 +237,13 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
-    void shouldSubmitRepairRequest() throws Exception {
+    void shouldSubmitRepairRequestWhenRequestBodyOmitsUserId() throws Exception {
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/repair")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"checkTime\":\"2026-03-31 09:05:00\",\"repairReason\":\"设备故障未成功打卡\"}"))
+                        .content("{\"checkType\":\"IN\",\"checkTime\":\"2026-03-31 09:05:00\",\"repairReason\":\"设备故障未成功打卡\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -227,14 +261,14 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
-    void shouldRejectDuplicatePendingRepairRequest() throws Exception {
+    void shouldIgnoreRequestUserIdWhenCheckingDuplicatePendingRepairRequest() throws Exception {
         insertAttendanceRepair(3001L, 1001L, "IN", "2026-03-31 09:05:00", "设备故障未成功打卡", "PENDING");
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/repair")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"checkTime\":\"2026-03-31 09:05:00\",\"repairReason\":\"设备故障未成功打卡\"}"))
+                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"checkTime\":\"2026-03-31 09:05:00\",\"repairReason\":\"设备故障未成功打卡\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("补卡申请已存在，请勿重复提交"));

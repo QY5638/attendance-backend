@@ -282,42 +282,44 @@
 
 ### 4.1 人脸录入
 - 路径：`POST /api/face/register`
+- 权限：`ADMIN`、`EMPLOYEE`
 - 业务约束：
-  - `userId` 必填，且必须对应已存在员工
+  - 当前登录用户自助录入，目标用户由当前会话解析
+  - 请求体中的 `userId` 非必填；若传入，后端忽略并覆盖为当前会话用户编号
   - `imageData` 必填
   - 同一员工重复录入时新增一条 `faceFeature` 记录，验证始终只取最新一条模板
   - 不直接返回原始特征内容
 
 ```json
 {
-  "userId": 1001,
   "imageData": "base64..."
 }
 ```
 
 响应字段要点：
-- `userId`
+- `userId`：当前会话解析出的用户编号
 - `registered`
 - `message`
 - `createTime`
 
 ### 4.2 人脸验证
 - 路径：`POST /api/face/verify`
+- 权限：`ADMIN`、`EMPLOYEE`
 - 业务约束：
-  - `userId` 必填，且必须对应已存在员工
+  - 当前登录用户自助验证，目标用户由当前会话解析
+  - 请求体中的 `userId` 非必填；若传入，后端忽略并覆盖为当前会话用户编号
   - `imageData` 必填
   - 未录入人脸时返回 `registered=false`
   - 验证失败时返回 `matched=false`
 
 ```json
 {
-  "userId": 1001,
   "imageData": "base64..."
 }
 ```
 
 响应字段要点：
-- `userId`
+- `userId`：当前会话解析出的用户编号
 - `registered`
 - `matched`
 - `faceScore`
@@ -327,16 +329,16 @@
 ### 4.3 提交打卡
 - 路径：`POST /api/attendance/checkin`
 - 业务约束：
-  - `userId`、`checkType`、`deviceId`、`ipAddr`、`location`、`imageData` 必填
+  - 当前登录用户自助打卡，目标用户由当前会话解析
+  - 请求体中的 `userId` 非必填；若传入，后端忽略并覆盖为当前会话用户编号
+  - `checkType`、`deviceId`、`ipAddr`、`location`、`imageData` 必填
   - `checkType` 仅允许 `IN` 或 `OUT`
-  - 员工只允许为本人提交打卡，管理员可代为提交
-  - 打卡时直接复用 `POST /api/face/verify` 的验证结果
+  - 打卡时直接复用 `POST /api/face/verify` 的自助验证结果
   - 设备停用时返回 `code=400`，消息为 `设备已停用，不能打卡`
   - 未录入人脸或验证失败时返回人脸模块已有提示，不生成打卡记录
 
 ```json
 {
-  "userId": 1001,
   "checkType": "IN",
   "deviceId": "DEV-001",
   "ipAddr": "192.168.1.10",
@@ -806,11 +808,13 @@
 - 路径：`DELETE /api/device/{deviceId}`
 
 ### 9.6 查询个人考勤记录
-- 路径：`GET /api/attendance/record/{userId}`
-- 业务约束：员工只允许查询本人记录，管理员可查询任意员工记录
+- 路径：`GET /api/attendance/record/me`
+- 业务约束：
+  - `FE-05` 通过该接口查询当前登录用户个人记录
+  - 当前登录用户由当前会话解析，不依赖登录响应额外提供 `userId`
+  - 保留 `GET /api/attendance/record/{userId}` 作为兼容/管理接口，不作为 `FE-05` 自助入口
 
 查询参数建议：
-- 路径参数：`userId`
 - `pageNum`
 - `pageSize`
 - `startDate`
@@ -854,14 +858,14 @@
 ### 9.8 提交补卡申请
 - 路径：`POST /api/attendance/repair`
 - 业务约束：
+  - 当前登录用户自助提交补卡申请，目标用户由当前会话解析
+  - 请求体中的 `userId` 非必填；若传入，后端忽略并覆盖为当前会话用户编号
   - 成功提交后生成一条 `status=PENDING` 的补卡申请记录
-  - 员工只允许为本人提交补卡申请，管理员可代为提交
   - 若同一用户、同一补卡类型、同一补卡时间已存在待处理申请，则返回 `code=400`，消息为 `补卡申请已存在，请勿重复提交`
   - 若同一时间点已存在正式打卡记录，则返回 `code=400`，消息为 `该时间点已存在打卡记录，无需补卡`
 
 ```json
 {
-  "userId": 1001,
   "checkType": "IN",
   "checkTime": "2026-03-31 09:05:00",
   "repairReason": "设备故障未成功打卡"
