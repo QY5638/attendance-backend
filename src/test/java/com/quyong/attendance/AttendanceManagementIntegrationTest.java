@@ -70,14 +70,35 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
-    void shouldCheckInWhenRequestBodyOmitsUserIdAndFaceVerifyPasses() throws Exception {
+    void shouldReturnEnabledDeviceOptionsForEmployee() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(get("/api/attendance/device-options")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].deviceId").value("DEV-001"))
+                .andExpect(jsonPath("$.data[0].name").value("前台考勤机"))
+                .andExpect(jsonPath("$.data[0].location").value("办公区A"))
+                .andExpect(jsonPath("$.data[0].status").doesNotExist())
+                .andExpect(jsonPath("$.data[0].description").doesNotExist());
+    }
+
+    @Test
+    void shouldCheckInWhenRequestBodyOmitsUserIdIpAndLocationAndFaceVerifyPasses() throws Exception {
         insertFaceFeature(1001L, "face-image-checkin-success", 1101L, "hash-success-1101");
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.66");
+                            return request;
+                        })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.11\",\"location\":\"办公区A\",\"imageData\":\"face-image-checkin-success\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-checkin-success\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -95,6 +116,22 @@ class AttendanceManagementIntegrationTest {
                 1001L
         );
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), checkinLogCount);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "192.168.1.66",
+                jdbcTemplate.queryForObject(
+                        "SELECT ipAddr FROM attendanceRecord WHERE userId = ? ORDER BY id DESC LIMIT 1",
+                        String.class,
+                        1001L
+                )
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "办公区A",
+                jdbcTemplate.queryForObject(
+                        "SELECT location FROM attendanceRecord WHERE userId = ? ORDER BY id DESC LIMIT 1",
+                        String.class,
+                        1001L
+                )
+        );
     }
 
     @Test
@@ -104,7 +141,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.11\",\"location\":\"办公区A\",\"imageData\":\"face-image-not-registered\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-not-registered\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("该用户未录入人脸"));
@@ -118,7 +155,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.11\",\"location\":\"办公区A\",\"imageData\":\"face-image-other\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-other\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("人脸验证未通过"));
@@ -132,7 +169,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-002\",\"ipAddr\":\"192.168.1.12\",\"location\":\"办公区B\",\"imageData\":\"face-image-disabled-device\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-002\",\"imageData\":\"face-image-disabled-device\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("设备已停用，不能打卡"));
@@ -144,9 +181,13 @@ class AttendanceManagementIntegrationTest {
         String token = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.21");
+                            return request;
+                        })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"ipAddr\":\"192.168.1.21\",\"location\":\"办公区A\",\"imageData\":\"face-image-for-zhangsan\"}"))
+                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-for-zhangsan\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))

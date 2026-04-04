@@ -331,7 +331,9 @@
 - 业务约束：
   - 当前登录用户自助打卡，目标用户由当前会话解析
   - 请求体中的 `userId` 非必填；若传入，后端忽略并覆盖为当前会话用户编号
-  - `checkType`、`deviceId`、`ipAddr`、`location`、`imageData` 必填
+  - `checkType`、`deviceId`、`imageData` 必填
+  - `ipAddr` 由后端按 request 地址解析，不由前端传入
+  - `location` 由后端按 `deviceId` 回填为设备位置快照
   - `checkType` 仅允许 `IN` 或 `OUT`
   - 打卡时直接复用 `POST /api/face/verify` 的自助验证结果
   - 设备停用时返回 `code=400`，消息为 `设备已停用，不能打卡`
@@ -341,8 +343,6 @@
 {
   "checkType": "IN",
   "deviceId": "DEV-001",
-  "ipAddr": "192.168.1.10",
-  "location": "办公区A",
   "imageData": "base64..."
 }
 ```
@@ -807,7 +807,19 @@
 ### 9.5 删除设备
 - 路径：`DELETE /api/device/{deviceId}`
 
-### 9.6 查询个人考勤记录
+### 9.6 查询自助打卡设备列表
+- 路径：`GET /api/attendance/device-options`
+- 业务约束：
+  - `FE-05` 通过该接口获取可选打卡设备来源
+  - 仅返回 `status=1` 的启用设备
+  - 该接口不复用 `GET /api/device/list` 的管理语义
+
+返回字段要点：
+- `deviceId`
+- `name`
+- `location`
+
+### 9.7 查询个人考勤记录
 - 路径：`GET /api/attendance/record/me`
 - 业务约束：
   - `FE-05` 通过该接口查询当前登录用户个人记录
@@ -830,7 +842,7 @@
 - `faceScore`
 - `status`
 
-### 9.7 查询考勤记录列表
+### 9.8 查询考勤记录列表
 - 路径：`GET /api/attendance/list`
 - 业务约束：仅管理员可访问
 
@@ -855,7 +867,7 @@
 - `faceScore`
 - `status`
 
-### 9.8 提交补卡申请
+### 9.9 提交补卡申请
 - 路径：`POST /api/attendance/repair`
 - 业务约束：
   - 当前登录用户自助提交补卡申请，目标用户由当前会话解析

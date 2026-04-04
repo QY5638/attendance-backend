@@ -90,7 +90,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendanceRecord.setCheckType(validatedDTO.getCheckType());
         attendanceRecord.setDeviceId(validatedDTO.getDeviceId());
         attendanceRecord.setIpAddr(validatedDTO.getIpAddr());
-        attendanceRecord.setLocation(validatedDTO.getLocation());
+        attendanceRecord.setLocation(device.getLocation());
         attendanceRecord.setFaceScore(faceVerifyVO.getFaceScore());
         attendanceRecord.setStatus(STATUS_NORMAL);
         attendanceRecordMapper.insert(attendanceRecord);

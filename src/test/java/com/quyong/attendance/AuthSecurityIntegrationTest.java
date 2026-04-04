@@ -290,6 +290,18 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
+    void shouldAllowEmployeeAccessingAttendanceDeviceOptions() throws Exception {
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(get("/api/attendance/device-options")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
     void shouldNotBeBlockedByUnauthorizedOrForbiddenWhenAdminAccessesProtectedUserApi() throws Exception {
         String token = loginAndExtractToken("admin", "123456");
 

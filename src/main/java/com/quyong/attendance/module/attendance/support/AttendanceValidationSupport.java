@@ -30,8 +30,8 @@ public class AttendanceValidationSupport {
         }
         target.setCheckType(requireCheckType(target.getCheckType()));
         target.setDeviceId(requireText(target.getDeviceId(), "设备编号不能为空"));
-        target.setIpAddr(requireText(target.getIpAddr(), "IP地址不能为空"));
-        target.setLocation(requireText(target.getLocation(), "打卡地点不能为空"));
+        target.setIpAddr(normalize(target.getIpAddr()));
+        target.setLocation(normalize(target.getLocation()));
         target.setImageData(requireText(target.getImageData(), "人脸图像不能为空"));
         return target;
     }

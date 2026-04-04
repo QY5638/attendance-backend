@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .antMatchers("/api/health", "/api/auth/login").permitAll()
                 .antMatchers("/api/face/register", "/api/face/verify")
                 .hasAnyRole("ADMIN", "EMPLOYEE")
-                .antMatchers("/api/attendance/checkin", "/api/attendance/record/**", "/api/attendance/repair")
+                .antMatchers("/api/attendance/checkin", "/api/attendance/device-options", "/api/attendance/record/**", "/api/attendance/repair")
                 .hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/statistics/personal", "/api/statistics/summary").hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/attendance/list").hasRole("ADMIN")
