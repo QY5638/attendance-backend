@@ -531,16 +531,85 @@
 ## 7. 统计分析接口
 
 ### 7.1 个人统计
-- 路径：`GET /api/statistics/personal?userId=1001`
+- 路径：`GET /api/statistics/personal`
+
+查询参数建议：
+- `startDate`
+- `endDate`
+
+业务约束：
+- 按当前登录会话推导统计用户，前端不传 `userId`
+- 管理员返回本人个人统计
+- 员工返回本人个人统计
+- 统计时间锚点统一使用 `attendanceRecord.checkTime`
+
+返回字段要点：
+- `userId`
+- `realName`
+- `deptId`
+- `recordCount`
+- `exceptionCount`
+- `analysisCount`
+- `warningCount`
+- `reviewCount`
+- `closedLoopCount`
+- `exceptionTypeDistribution`
+- `riskLevelDistribution`
+- `warningStatusDistribution`
+- `reviewResultDistribution`
 
 ### 7.2 部门统计
-- 路径：`GET /api/statistics/department?deptId=1`
+- 路径：`GET /api/statistics/department`
+
+查询参数建议：
+- `startDate`
+- `endDate`
+
+业务约束：
+- 仅 `ADMIN` 可访问
+- 默认统计范围为全局所有部门汇总，前端不传 `deptId`
+- 返回中的 `deptName` 固定为 `全部部门`
+
+返回字段要点：
+- `deptId`
+- `deptName`
+- `recordCount`
+- `exceptionCount`
+- `analysisCount`
+- `warningCount`
+- `reviewCount`
+- `closedLoopCount`
+- `exceptionTypeDistribution`
+- `riskLevelDistribution`
+- `warningStatusDistribution`
+- `reviewResultDistribution`
 
 ### 7.3 异常趋势统计
 - 路径：`GET /api/statistics/exception-trend`
 
+查询参数建议：
+- `deptId`
+- `startDate`
+- `endDate`
+- `periodType`：`DAY`、`WEEK`、`MONTH`
+
+返回字段要点：
+- `periodType`
+- `points[].date`
+- `points[].recordCount`
+- `points[].exceptionCount`
+- `points[].analysisCount`
+- `points[].warningCount`
+- `points[].reviewCount`
+- `points[].closedLoopCount`
+
 ### 7.4 查询统计摘要
 - 路径：`GET /api/statistics/summary`
+
+查询参数建议：
+- `startDate`
+- `endDate`
+- `periodType`
 
 返回字段要点：
 - `periodType`
@@ -548,8 +617,20 @@
 - `highlightRisks`
 - `manageSuggestion`
 
+口径说明：
+- `ADMIN` 查看全局摘要
+- `EMPLOYEE` 查看本人个人摘要
+- `summary` 基于打卡量、异常量、预警量、复核量和闭环量生成
+- `highlightRisks` 需体现高风险异常、未处理预警、未闭环异常和审计缺口
+- 审计缺口评估需纳入 `modelCallLog`、`decisionTrace`
+
 ### 7.5 查询部门风险画像摘要
 - 路径：`GET /api/statistics/department-risk-brief`
+
+查询参数建议：
+- `deptId`
+- `startDate`
+- `endDate`
 
 返回字段要点：
 - `deptId`
@@ -558,8 +639,30 @@
 - `riskSummary`
 - `manageSuggestion`
 
+口径说明：
+- `riskScore` 基于异常率、高风险占比、未处理预警占比和闭环缺口综合计算
+
 ### 7.6 报表导出
 - 路径：`GET /api/statistics/export`
+
+查询参数建议：
+- `exportType`：`PERSONAL`、`DEPARTMENT`、`TREND`、`AUDIT`
+- `type`
+- `pageNum`
+- `pageSize`
+- `startDate`
+- `endDate`
+- `periodType`
+
+返回说明：
+- 返回 `text/csv;charset=UTF-8` 文件下载响应
+- 响应头包含 `Content-Disposition: attachment`
+- 本轮不默认放开员工导出权限
+- `PERSONAL` 导出个人闭环统计
+- `DEPARTMENT` 导出全局部门汇总统计
+- `TREND` 导出趋势点位统计
+- `AUDIT` 导出操作日志查询结果
+- `AUDIT` 导出保留“导出全量筛选结果”语义，但单次导出上限为 `5000` 条，超限时返回 `code=400`
 
 ## 8. 组织与权限管理接口
 
@@ -896,6 +999,10 @@
 - `type`
 - `content`
 - `operationTime`
+
+口径说明：
+- 本接口查询 `operationLog`，用于用户操作审计
+- 当前最小纳入日志的关键成功路径包括：登录、打卡、补卡申请、预警重评估、复核提交、复核反馈
 
 ### 10.10 查询提示词模板列表
 - 路径：`GET /api/system/prompt/list`
