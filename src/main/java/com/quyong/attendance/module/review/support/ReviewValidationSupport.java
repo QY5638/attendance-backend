@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReviewValidationSupport {
 
+    private static final String LEGACY_CONFIRMED_EFFECTIVE = "CONFIRMED_EFFECTIVE";
+    private static final String TRUE_POSITIVE = "TRUE_POSITIVE";
+    private static final String FALSE_POSITIVE = "FALSE_POSITIVE";
+    private static final String NEEDS_TUNING = "NEEDS_TUNING";
+
     public ReviewSubmitDTO validateSubmit(ReviewSubmitDTO dto) {
         if (dto == null || dto.getExceptionId() == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "异常记录ID不能为空");
@@ -28,7 +33,7 @@ public class ReviewValidationSupport {
         if (dto == null || dto.getReviewId() == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "复核记录ID不能为空");
         }
-        String feedbackTag = normalize(dto.getFeedbackTag());
+        String feedbackTag = normalizeFeedbackTag(dto.getFeedbackTag());
         if (feedbackTag == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "反馈标签不能为空");
         }
@@ -72,5 +77,19 @@ public class ReviewValidationSupport {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeFeedbackTag(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (LEGACY_CONFIRMED_EFFECTIVE.equals(normalized)) {
+            return TRUE_POSITIVE;
+        }
+        if (TRUE_POSITIVE.equals(normalized) || FALSE_POSITIVE.equals(normalized) || NEEDS_TUNING.equals(normalized)) {
+            return normalized;
+        }
+        throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "反馈标签不合法");
     }
 }

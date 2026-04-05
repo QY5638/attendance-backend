@@ -88,6 +88,18 @@ class ReviewControllerTest {
     }
 
     @Test
+    void shouldNormalizeLegacyFeedbackTagWhenQueryingLatestReview() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", "CONFIRMED_EFFECTIVE", "建议保留当前策略", "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/review/3001")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.feedbackTag").value("TRUE_POSITIVE"));
+    }
+
+    @Test
     void shouldReturnNullWhenReviewRecordMissing() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
 
@@ -129,6 +141,32 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.data.similarCaseSummary").value("存在相似设备异常与低分值组合案例"))
                 .andExpect(jsonPath("$.data.decisionReason").value("规则与模型结论一致，建议人工复核"))
                 .andExpect(jsonPath("$.data.confidenceScore").value(92.5));
+    }
+
+    @Test
+    void shouldReturnAssistantInfoFromAnalysisWhenDecisionTraceMissing() throws Exception {
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "88.80", "分析层回退判定依据", "建议结合历史记录确认", "模型识别到跨设备与临界分值组合风险", "建议优先人工核验近期设备使用情况", "存在同部门相似代打卡案例", "v1.0");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/review/3001/assistant")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("模型识别到跨设备与临界分值组合风险；建议优先人工核验近期设备使用情况"))
+                .andExpect(jsonPath("$.data.similarCaseSummary").value("存在同部门相似代打卡案例"))
+                .andExpect(jsonPath("$.data.decisionReason").value("分析层回退判定依据"))
+                .andExpect(jsonPath("$.data.confidenceScore").value(88.8));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenAssistantInfoMissing() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/review/3001/assistant")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("复核辅助信息不存在"));
     }
 
     @Test
@@ -183,6 +221,25 @@ class ReviewControllerTest {
     }
 
     @Test
+    void shouldBlockSubmitWhenAssistantInfoMissing() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"exceptionId\":3001,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"人工确认异常\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("复核辅助信息不存在"));
+
+        Integer reviewCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM reviewRecord WHERE exceptionId = 3001",
+                Integer.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), reviewCount);
+    }
+
+    @Test
     void shouldSubmitRuleExceptionReviewWithoutAnalysis() throws Exception {
         insertAttendanceRecord(2004L, 1002L, "2026-03-26 09:16:00", "IN", "DEV-009", "外部区域", 95.20, "ABNORMAL");
         insertAttendanceException(3002L, 2004L, 1002L, "LATE", "MEDIUM", "RULE", "超过上班时间阈值，判定为迟到", "PENDING");
@@ -200,6 +257,28 @@ class ReviewControllerTest {
 
         String processStatus = jdbcTemplate.queryForObject(
                 "SELECT processStatus FROM attendanceException WHERE id = 3002",
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
+    }
+
+    @Test
+    void shouldSubmitReviewWhenOnlyAnalysisExists() throws Exception {
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "88.80", "分析层回退判定依据", "建议结合历史记录确认", "模型识别到跨设备与临界分值组合风险", "建议优先人工核验近期设备使用情况", "存在同部门相似代打卡案例", "v1.0");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"exceptionId\":3001,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"仅依赖 analysis 也允许复核\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("模型识别到跨设备与临界分值组合风险；建议优先人工核验近期设备使用情况"));
+
+        String processStatus = jdbcTemplate.queryForObject(
+                "SELECT processStatus FROM attendanceException WHERE id = 3001",
                 String.class
         );
         org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
@@ -263,6 +342,129 @@ class ReviewControllerTest {
                 9001L
         );
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), feedbackLogCount);
+    }
+
+    @Test
+    void shouldMapDeprecatedFeedbackTagToTruePositive() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"CONFIRMED_EFFECTIVE\",\"strategyFeedback\":\"沿用兼容值\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        String feedbackTag = jdbcTemplate.queryForObject(
+                "SELECT feedbackTag FROM reviewRecord WHERE id = 6001",
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("TRUE_POSITIVE", feedbackTag);
+    }
+
+    @Test
+    void shouldReturnTruePositiveWhenStoredFeedbackTagUsesDeprecatedValue() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", "CONFIRMED_EFFECTIVE", null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/review/3001")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(6001))
+                .andExpect(jsonPath("$.data.feedbackTag").value("TRUE_POSITIVE"));
+    }
+
+    @Test
+    void shouldRejectFeedbackWhenTagIsOutsideFrozenEnum() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"UNKNOWN_TAG\",\"strategyFeedback\":\"不合法标签\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("反馈标签不合法"));
+    }
+
+    @Test
+    void shouldAllowFeedbackWhenAssistantInfoMissingButLatestReviewExists() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", null, null, null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"NEEDS_TUNING\",\"strategyFeedback\":\"缺少 assistant 仍允许反馈\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        String feedbackTag = jdbcTemplate.queryForObject(
+                "SELECT feedbackTag FROM reviewRecord WHERE id = 6001",
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("NEEDS_TUNING", feedbackTag);
+    }
+
+    @Test
+    void shouldReturnAssistantMissingWhenNoAnalysisOrDecisionTrace() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/review/3001/assistant")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("复核辅助信息不存在"));
+    }
+
+    @Test
+    void shouldNormalizeLegacyFeedbackTagWhenSavingFeedback() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"CONFIRMED_EFFECTIVE\",\"strategyFeedback\":\"建议保留当前提示词模板\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        String feedbackTag = jdbcTemplate.queryForObject(
+                "SELECT feedbackTag FROM reviewRecord WHERE id = 6001",
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("TRUE_POSITIVE", feedbackTag);
+    }
+
+    @Test
+    void shouldRejectUnknownFeedbackTag() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"UNKNOWN_TAG\",\"strategyFeedback\":\"建议调整\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("反馈标签不合法"));
+    }
+
+    @Test
+    void shouldRejectStrategyFeedbackWithoutFeedbackTag() throws Exception {
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"strategyFeedback\":\"建议降低此类规则敏感度\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("反馈标签不能为空"));
     }
 
     @Test

@@ -6,6 +6,23 @@ SET NAMES utf8mb4;
 -- 2. 本文件为演示和测试用途，采用固定主键，便于复现测试场景。
 -- 3. 如需重复执行，可直接在全新数据库中重新导入建表脚本后再执行本文件。
 
+-- 测试角色数据
+INSERT IGNORE INTO `role` (`id`, `code`, `name`, `description`, `status`) VALUES
+(1, 'ADMIN', '管理员', '系统管理员角色', 1),
+(2, 'EMPLOYEE', '员工', '普通员工角色', 1);
+
+-- 测试部门数据
+INSERT IGNORE INTO `department` (`id`, `name`, `description`) VALUES
+(1, '管理部', '负责系统管理与统筹'),
+(2, '技术部', '负责系统研发与维护'),
+(3, '行政部', '负责日常行政支持');
+
+-- 测试设备数据
+INSERT IGNORE INTO `device` (`id`, `name`, `location`, `status`, `description`) VALUES
+('DEV-001', '办公区A考勤机', '办公区A', 1, '办公区A默认设备'),
+('DEV-002', '办公区B考勤机', '办公区B', 1, '办公区B默认设备'),
+('DEV-009', '外部区域临时设备', '外部区域', 1, '用于异常场景演示');
+
 -- 测试用户数据
 INSERT IGNORE INTO `user` (`id`, `username`, `password`, `realName`, `gender`, `phone`, `deptId`, `roleId`, `status`, `createTime`) VALUES
 (9001, 'admin', '$2a$10$DII2rUub7WSmcTFOa/4AtumHq9r3yDGwQ4gHW1pvyx51.dE.Abliu', '系统管理员', '男', '13800000001', 1, 1, 1, '2026-03-01 08:00:00'),
@@ -62,7 +79,7 @@ INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `statu
 
 -- 测试复核数据
 INSERT IGNORE INTO `reviewRecord` (`id`, `exceptionId`, `reviewUserId`, `result`, `comment`, `aiReviewSuggestion`, `similarCaseSummary`, `feedbackTag`, `strategyFeedback`, `reviewTime`) VALUES
-(6001, 3001, 9001, 'CONFIRMED', '确认存在代打卡风险，已记录处理', 'AI 建议优先确认设备异常和地点跨度是否合理，当前风险偏高。', '历史上同类外部设备+低分值场景中，多数最终被确认异常。', 'CONFIRMED_EFFECTIVE', '建议保留该提示词模板并提高设备异常权重。', '2026-03-26 09:10:00');
+(6001, 3001, 9001, 'CONFIRMED', '确认存在代打卡风险，已记录处理', 'AI 建议优先确认设备异常和地点跨度是否合理，当前风险偏高。', '历史上同类外部设备+低分值场景中，多数最终被确认异常。', 'TRUE_POSITIVE', '建议保留该提示词模板并提高设备异常权重。', '2026-03-26 09:10:00');
 
 -- 测试模型调用日志数据
 INSERT IGNORE INTO `modelCallLog` (`id`, `businessType`, `businessId`, `promptTemplateId`, `inputSummary`, `outputSummary`, `status`, `latencyMs`, `errorMessage`, `createTime`) VALUES

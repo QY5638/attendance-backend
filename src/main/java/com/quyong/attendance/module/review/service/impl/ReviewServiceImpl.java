@@ -29,6 +29,9 @@ import java.util.List;
 @Service
 public class ReviewServiceImpl implements ReviewService {
 
+    private static final String LEGACY_CONFIRMED_EFFECTIVE = "CONFIRMED_EFFECTIVE";
+    private static final String TRUE_POSITIVE = "TRUE_POSITIVE";
+
     private final AttendanceExceptionMapper attendanceExceptionMapper;
     private final ExceptionAnalysisMapper exceptionAnalysisMapper;
     private final DecisionTraceService decisionTraceService;
@@ -158,10 +161,17 @@ public class ReviewServiceImpl implements ReviewService {
         vo.setReviewComment(entity.getComment());
         vo.setAiReviewSuggestion(entity.getAiReviewSuggestion());
         vo.setSimilarCaseSummary(entity.getSimilarCaseSummary());
-        vo.setFeedbackTag(entity.getFeedbackTag());
+        vo.setFeedbackTag(normalizeFeedbackTag(entity.getFeedbackTag()));
         vo.setStrategyFeedback(entity.getStrategyFeedback());
         vo.setReviewTime(entity.getReviewTime());
         return vo;
+    }
+
+    private String normalizeFeedbackTag(String feedbackTag) {
+        if (LEGACY_CONFIRMED_EFFECTIVE.equals(feedbackTag)) {
+            return TRUE_POSITIVE;
+        }
+        return feedbackTag;
     }
 
     private AuthUser currentAuthUser() {
