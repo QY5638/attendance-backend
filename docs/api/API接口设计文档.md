@@ -473,6 +473,8 @@
 ### 6.4 提交复核结果
 - 路径：`POST /api/review/submit`
 
+- 说明：一期复核提交依赖 AI 复核辅助信息；若该异常对应的 `exceptionAnalysis` 与 `decisionTrace` 均缺失，则返回 `code=400`，消息为 `复核辅助信息不存在`。
+
 ```json
 {
   "exceptionId": 9001,
@@ -494,7 +496,7 @@
 ### 6.5 查询复核记录
 - 路径：`GET /api/review/{exceptionId}`
 
-说明：返回该异常的最新一条复核记录；若该异常尚无复核记录，则返回体中的 `data` 字段为空或省略。
+说明：返回该异常的最新一条复核记录；若该异常尚无复核记录，则返回体中的 `data` 字段为空或省略。一期不提供复核历史列表。
 
 返回字段要点：
 - `id`
@@ -508,8 +510,14 @@
 - `strategyFeedback`
 - `reviewTime`
 
+补充约定：
+- `feedbackTag` 一期对外固定为 `TRUE_POSITIVE`、`FALSE_POSITIVE`、`NEEDS_TUNING`
+- 历史值 `CONFIRMED_EFFECTIVE` 已废弃；若存量数据仍为该值，对外统一按 `TRUE_POSITIVE` 返回
+
 ### 6.6 查询 AI 复核辅助信息
 - 路径：`GET /api/review/{exceptionId}/assistant`
+
+- 说明：若该异常存在，但 `exceptionAnalysis` 与 `decisionTrace` 均缺失，则返回 `code=400`，消息为 `复核辅助信息不存在`。
 
 返回字段要点：
 - `aiReviewSuggestion`
@@ -523,12 +531,20 @@
 ```json
 {
   "reviewId": 6001,
-  "feedbackTag": "CONFIRMED_EFFECTIVE",
+  "feedbackTag": "TRUE_POSITIVE",
   "strategyFeedback": "建议保留当前提示词模板并提高设备异常权重"
 }
 ```
 
 说明：该接口仅更新既有复核记录上的 `feedbackTag` 与 `strategyFeedback`，不回写预警表。
+
+补充约定：
+- `feedbackTag` 一期固定为 `TRUE_POSITIVE`、`FALSE_POSITIVE`、`NEEDS_TUNING`
+- `CONFIRMED_EFFECTIVE` 已废弃；兼容期内后端静默映射为 `TRUE_POSITIVE`
+- `feedbackTag` 为单值单选、可覆盖更新
+- `strategyFeedback` 必须依附 `feedbackTag`，不支持单独提交
+- 若前端未选择 `feedbackTag`，则不调用本接口
+- 一期前端应传“最新一条复核记录”的 `reviewId`；后端本期不额外校验该 `reviewId` 是否为 latest
 
 ## 7. 统计分析接口
 
