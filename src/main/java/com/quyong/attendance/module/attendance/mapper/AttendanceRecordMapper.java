@@ -13,6 +13,11 @@ import java.util.List;
 @Mapper
 public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
+    @Select("SELECT id,userId,checkTime,checkType,deviceId,ipAddr,location,longitude,latitude,faceScore,status,createTime FROM attendanceRecord WHERE userId = #{userId} AND (checkTime < #{checkTime} OR (checkTime = #{checkTime} AND id <> #{recordId})) ORDER BY checkTime DESC, id DESC LIMIT 1")
+    AttendanceRecord selectLatestBefore(@Param("userId") Long userId,
+                                        @Param("checkTime") LocalDateTime checkTime,
+                                        @Param("recordId") Long recordId);
+
     @Select("SELECT COUNT(*) FROM attendanceRecord WHERE userId = #{userId} AND checkType = #{checkType} AND checkTime = #{checkTime}")
     long countSameRecord(@Param("userId") Long userId,
                          @Param("checkType") String checkType,
@@ -32,7 +37,8 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
     @Select({
             "<script>",
-            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.location, ar.faceScore, ar.status",
+            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.location, ar.faceScore, ar.status,",
+            "(SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType",
             "FROM attendanceRecord ar",
             "LEFT JOIN `user` u ON ar.userId = u.id",
             "WHERE ar.userId = #{userId}",

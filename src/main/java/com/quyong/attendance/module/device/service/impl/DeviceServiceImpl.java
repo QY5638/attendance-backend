@@ -58,6 +58,8 @@ public class DeviceServiceImpl implements DeviceService {
         device.setId(validatedSaveDTO.getDeviceId());
         device.setName(validatedSaveDTO.getName());
         device.setLocation(validatedSaveDTO.getLocation());
+        device.setLongitude(validatedSaveDTO.getLongitude());
+        device.setLatitude(validatedSaveDTO.getLatitude());
         device.setStatus(validatedSaveDTO.getStatus());
         device.setDescription(validatedSaveDTO.getDescription());
         deviceMapper.insert(device);
@@ -71,6 +73,8 @@ public class DeviceServiceImpl implements DeviceService {
 
         device.setName(validatedSaveDTO.getName());
         device.setLocation(validatedSaveDTO.getLocation());
+        device.setLongitude(validatedSaveDTO.getLongitude());
+        device.setLatitude(validatedSaveDTO.getLatitude());
         device.setStatus(validatedSaveDTO.getStatus());
         device.setDescription(validatedSaveDTO.getDescription());
         deviceMapper.updateById(device);
@@ -100,6 +104,8 @@ public class DeviceServiceImpl implements DeviceService {
         vo.setDeviceId(device.getId());
         vo.setName(device.getName());
         vo.setLocation(device.getLocation());
+        vo.setLongitude(device.getLongitude());
+        vo.setLatitude(device.getLatitude());
         vo.setStatus(device.getStatus());
         vo.setDescription(device.getDescription());
         return vo;

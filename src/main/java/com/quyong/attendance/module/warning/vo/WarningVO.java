@@ -7,6 +7,7 @@ public class WarningVO {
 
     private Long id;
     private Long exceptionId;
+    private String exceptionType;
     private String type;
     private String level;
     private String status;
@@ -38,6 +39,14 @@ public class WarningVO {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getExceptionType() {
+        return exceptionType;
+    }
+
+    public void setExceptionType(String exceptionType) {
+        this.exceptionType = exceptionType;
     }
 
     public String getLevel() {

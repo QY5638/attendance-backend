@@ -1,5 +1,6 @@
 package com.quyong.attendance.module.attendance.service.impl;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.quyong.attendance.common.api.PageResult;
 import com.quyong.attendance.common.api.ResultCode;
 import com.quyong.attendance.common.exception.BusinessException;
@@ -19,25 +20,38 @@ import com.quyong.attendance.module.attendance.vo.AttendanceRepairVO;
 import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.device.entity.Device;
 import com.quyong.attendance.module.device.support.DeviceValidationSupport;
+import com.quyong.attendance.module.exceptiondetect.dto.ComplexCheckDTO;
+import com.quyong.attendance.module.exceptiondetect.dto.RiskFeaturesDTO;
+import com.quyong.attendance.module.exceptiondetect.dto.RuleCheckDTO;
+import com.quyong.attendance.module.exceptiondetect.entity.AttendanceException;
+import com.quyong.attendance.module.exceptiondetect.mapper.AttendanceExceptionMapper;
+import com.quyong.attendance.module.exceptiondetect.service.ExceptionAnalysisOrchestrator;
+import com.quyong.attendance.module.exceptiondetect.vo.ExceptionDecisionVO;
 import com.quyong.attendance.module.face.dto.FaceVerifyDTO;
 import com.quyong.attendance.module.face.service.FaceService;
 import com.quyong.attendance.module.face.vo.FaceVerifyVO;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
+import com.quyong.attendance.module.warning.service.WarningService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class AttendanceServiceImpl implements AttendanceService {
 
     private static final String STATUS_NORMAL = "NORMAL";
     private static final String STATUS_PENDING = "PENDING";
+    private static final BigDecimal COMPLEX_CHECK_FACE_SCORE_THRESHOLD = new BigDecimal("90");
 
     private final AttendanceRecordMapper attendanceRecordMapper;
     private final AttendanceRepairMapper attendanceRepairMapper;
@@ -46,6 +60,10 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final DeviceValidationSupport deviceValidationSupport;
     private final FaceService faceService;
     private final OperationLogService operationLogService;
+    private final AttendanceExceptionMapper attendanceExceptionMapper;
+    private final ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator;
+    private final WarningService warningService;
+    private final Clock clock;
 
     public AttendanceServiceImpl(AttendanceRecordMapper attendanceRecordMapper,
                                  AttendanceRepairMapper attendanceRepairMapper,
@@ -53,7 +71,11 @@ public class AttendanceServiceImpl implements AttendanceService {
                                  UserValidationSupport userValidationSupport,
                                  DeviceValidationSupport deviceValidationSupport,
                                  FaceService faceService,
-                                 OperationLogService operationLogService) {
+                                 OperationLogService operationLogService,
+                                 AttendanceExceptionMapper attendanceExceptionMapper,
+                                 ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator,
+                                 WarningService warningService,
+                                 Clock clock) {
         this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceRepairMapper = attendanceRepairMapper;
         this.attendanceValidationSupport = attendanceValidationSupport;
@@ -61,9 +83,14 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.deviceValidationSupport = deviceValidationSupport;
         this.faceService = faceService;
         this.operationLogService = operationLogService;
+        this.attendanceExceptionMapper = attendanceExceptionMapper;
+        this.exceptionAnalysisOrchestrator = exceptionAnalysisOrchestrator;
+        this.warningService = warningService;
+        this.clock = clock;
     }
 
     @Override
+    @Transactional
     public AttendanceCheckinVO checkin(AttendanceCheckinDTO dto) {
         AttendanceCheckinDTO validatedDTO = attendanceValidationSupport.validateCheckin(dto);
         User user = userValidationSupport.requireExistingUser(validatedDTO.getUserId());
@@ -86,16 +113,21 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         AttendanceRecord attendanceRecord = new AttendanceRecord();
         attendanceRecord.setUserId(validatedDTO.getUserId());
-        attendanceRecord.setCheckTime(LocalDateTime.now());
+        attendanceRecord.setCheckTime(LocalDateTime.now(clock));
         attendanceRecord.setCheckType(validatedDTO.getCheckType());
         attendanceRecord.setDeviceId(validatedDTO.getDeviceId());
         attendanceRecord.setIpAddr(validatedDTO.getIpAddr());
         attendanceRecord.setLocation(device.getLocation());
+        attendanceRecord.setLongitude(device.getLongitude());
+        attendanceRecord.setLatitude(device.getLatitude());
         attendanceRecord.setFaceScore(faceVerifyVO.getFaceScore());
         attendanceRecord.setStatus(STATUS_NORMAL);
         attendanceRecordMapper.insert(attendanceRecord);
 
         AttendanceRecord savedRecord = attendanceRecordMapper.selectById(attendanceRecord.getId());
+        RiskFeaturesDTO riskFeatures = buildRiskFeatures(savedRecord);
+        runClosedLoop(savedRecord, riskFeatures);
+        savedRecord = attendanceRecordMapper.selectById(attendanceRecord.getId());
         AttendanceCheckinVO vo = new AttendanceCheckinVO();
         vo.setRecordId(savedRecord.getId());
         vo.setUserId(savedRecord.getUserId());
@@ -201,6 +233,70 @@ public class AttendanceServiceImpl implements AttendanceService {
         vo.setCreateTime(savedRepair.getCreateTime());
         operationLogService.save(authUser.getUserId(), "REPAIR", user.getRealName() + "提交补卡申请");
         return vo;
+    }
+
+    private void runClosedLoop(AttendanceRecord attendanceRecord, RiskFeaturesDTO riskFeatures) {
+        RuleCheckDTO ruleCheckDTO = new RuleCheckDTO();
+        ruleCheckDTO.setRecordId(attendanceRecord.getId());
+        ExceptionDecisionVO ruleDecision = exceptionAnalysisOrchestrator.ruleCheck(ruleCheckDTO);
+        syncWarning(ruleDecision);
+
+        if (shouldSkipComplexCheck(ruleDecision)) {
+            return;
+        }
+
+        if (!shouldTriggerComplexCheck(riskFeatures)) {
+            return;
+        }
+
+        ComplexCheckDTO complexCheckDTO = new ComplexCheckDTO();
+        complexCheckDTO.setRecordId(attendanceRecord.getId());
+        complexCheckDTO.setUserId(attendanceRecord.getUserId());
+        complexCheckDTO.setRiskFeatures(riskFeatures);
+        syncWarning(exceptionAnalysisOrchestrator.complexCheck(complexCheckDTO));
+    }
+
+    private boolean shouldSkipComplexCheck(ExceptionDecisionVO ruleDecision) {
+        return ruleDecision != null && "MULTI_LOCATION_CONFLICT".equals(ruleDecision.getType());
+    }
+
+    private void syncWarning(ExceptionDecisionVO decisionVO) {
+        if (decisionVO == null || decisionVO.getExceptionId() == null) {
+            return;
+        }
+        warningService.syncWarningByExceptionId(decisionVO.getExceptionId());
+    }
+
+    private RiskFeaturesDTO buildRiskFeatures(AttendanceRecord attendanceRecord) {
+        RiskFeaturesDTO riskFeatures = new RiskFeaturesDTO();
+        riskFeatures.setFaceScore(attendanceRecord.getFaceScore());
+
+        AttendanceRecord previousRecord = attendanceRecordMapper.selectLatestBefore(
+                attendanceRecord.getUserId(),
+                attendanceRecord.getCheckTime(),
+                attendanceRecord.getId()
+        );
+        riskFeatures.setDeviceChanged(previousRecord != null && !Objects.equals(previousRecord.getDeviceId(), attendanceRecord.getDeviceId()));
+        riskFeatures.setLocationChanged(previousRecord != null && !Objects.equals(previousRecord.getLocation(), attendanceRecord.getLocation()));
+
+        Long historyAbnormalCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, attendanceRecord.getUserId()));
+        riskFeatures.setHistoryAbnormalCount(historyAbnormalCount == null ? 0 : historyAbnormalCount.intValue());
+        return riskFeatures;
+    }
+
+    private boolean shouldTriggerComplexCheck(RiskFeaturesDTO riskFeatures) {
+        if (riskFeatures == null) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(riskFeatures.getDeviceChanged()) || Boolean.TRUE.equals(riskFeatures.getLocationChanged())) {
+            return true;
+        }
+        if (riskFeatures.getHistoryAbnormalCount() != null && riskFeatures.getHistoryAbnormalCount().intValue() > 0) {
+            return true;
+        }
+        return riskFeatures.getFaceScore() != null
+                && riskFeatures.getFaceScore().compareTo(COMPLEX_CHECK_FACE_SCORE_THRESHOLD) < 0;
     }
 
     private String resolveCheckinText(String checkType) {
