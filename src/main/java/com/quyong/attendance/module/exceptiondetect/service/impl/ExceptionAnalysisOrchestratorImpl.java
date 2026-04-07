@@ -19,6 +19,7 @@ import com.quyong.attendance.module.exceptiondetect.support.ExceptionValidationS
 import com.quyong.attendance.module.exceptiondetect.vo.ExceptionDecisionVO;
 import com.quyong.attendance.module.map.config.MapProperties;
 import com.quyong.attendance.module.map.service.MapDistanceService;
+import com.quyong.attendance.module.model.gateway.config.ModelGatewayProperties;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeRequest;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeResponse;
 import com.quyong.attendance.module.model.gateway.service.ModelGateway;
@@ -28,8 +29,11 @@ import com.quyong.attendance.module.model.prompt.mapper.PromptTemplateMapper;
 import com.quyong.attendance.module.model.trace.service.DecisionTraceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalTime;
 
@@ -54,6 +58,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private final ExceptionValidationSupport exceptionValidationSupport;
     private final MapDistanceService mapDistanceService;
     private final MapProperties mapProperties;
+    private final ModelGatewayProperties modelGatewayProperties;
     private final Object[] recordLocks;
 
     public ExceptionAnalysisOrchestratorImpl(RuleService ruleService,
@@ -66,7 +71,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                                              DecisionTraceService decisionTraceService,
                                              ExceptionValidationSupport exceptionValidationSupport,
                                              MapDistanceService mapDistanceService,
-                                             MapProperties mapProperties) {
+                                             MapProperties mapProperties,
+                                             ModelGatewayProperties modelGatewayProperties) {
         this.ruleService = ruleService;
         this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceExceptionMapper = attendanceExceptionMapper;
@@ -78,6 +84,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         this.exceptionValidationSupport = exceptionValidationSupport;
         this.mapDistanceService = mapDistanceService;
         this.mapProperties = mapProperties;
+        this.modelGatewayProperties = modelGatewayProperties;
         this.recordLocks = initRecordLocks();
     }
 
@@ -158,7 +165,10 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 return null;
             }
 
-            String inputSummary = buildInputSummary(record, validatedDTO.getRiskFeatures());
+            String inputSummary = enrichPromptContext(
+                    buildInputSummary(record, validatedDTO.getRiskFeatures()),
+                    promptTemplate
+            );
             long startAt = System.currentTimeMillis();
             ModelInvokeResponse response;
             try {
@@ -239,7 +249,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                     "EXCEPTION_ANALYSIS",
                     attendanceException.getId(),
                     promptTemplate.getId(),
-                    inputSummary,
+                    enrichLogInputSummary(inputSummary),
                     response.getRawResponse(),
                     Integer.valueOf((int) (System.currentTimeMillis() - startAt))
             );
@@ -566,6 +576,28 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 + ", clientLocationChanged=" + (riskFeatures == null ? null : riskFeatures.getLocationChanged())
                 + ", clientHistoryAbnormalCount=" + (riskFeatures == null ? null : riskFeatures.getHistoryAbnormalCount())
                 + ", actualHistoryAbnormalCount=" + historyAbnormalCount;
+    }
+
+    private String enrichPromptContext(String inputSummary, PromptTemplate promptTemplate) {
+        String promptVersion = promptTemplate == null || !StringUtils.hasText(promptTemplate.getVersion())
+                ? "unknown"
+                : promptTemplate.getVersion().trim();
+        return inputSummary
+                + ", promptVersion=" + promptVersion
+                + ", promptFingerprint=" + digestPromptContent(promptTemplate == null ? null : promptTemplate.getContent());
+    }
+
+    private String enrichLogInputSummary(String inputSummary) {
+        String provider = modelGatewayProperties == null ? null : modelGatewayProperties.getProvider();
+        if (!StringUtils.hasText(provider)) {
+            return inputSummary;
+        }
+        return inputSummary + ", llmProvider=" + provider.trim();
+    }
+
+    private String digestPromptContent(String promptContent) {
+        String normalizedContent = promptContent == null ? "" : promptContent;
+        return DigestUtils.md5DigestAsHex(normalizedContent.getBytes(StandardCharsets.UTF_8));
     }
 
     private ModelInvokeRequest buildModelRequest(AttendanceRecord record, PromptTemplate promptTemplate, String inputSummary) {

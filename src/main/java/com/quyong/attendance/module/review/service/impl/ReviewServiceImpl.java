@@ -24,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -31,6 +32,8 @@ import java.util.List;
 public class ReviewServiceImpl implements ReviewService {
 
     private static final String LEGACY_CONFIRMED_EFFECTIVE = "CONFIRMED_EFFECTIVE";
+    private static final String ATTENDANCE_EXCEPTION_BUSINESS_TYPE = "ATTENDANCE_EXCEPTION";
+    private static final String REVIEW_FEEDBACK = "REVIEW_FEEDBACK";
     private static final String TRUE_POSITIVE = "TRUE_POSITIVE";
 
     private final AttendanceExceptionMapper attendanceExceptionMapper;
@@ -96,7 +99,15 @@ public class ReviewServiceImpl implements ReviewService {
             return vo;
         }
 
-        DecisionTraceVO trace = traces.get(traces.size() - 1);
+        DecisionTraceVO trace = findLatestDecisionTrace(traces);
+        if (trace == null) {
+            if (analysis == null) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "复核辅助信息不存在");
+            }
+            vo.setDecisionReason(analysis.getDecisionReason());
+            vo.setConfidenceScore(analysis.getConfidenceScore());
+            return vo;
+        }
         vo.setDecisionReason(trace.getDecisionReason());
         vo.setConfidenceScore(trace.getConfidenceScore());
         return vo;
@@ -126,6 +137,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional
     public void feedback(ReviewFeedbackDTO dto) {
         ReviewFeedbackDTO validatedDTO = reviewValidationSupport.validateFeedback(dto);
         AuthUser authUser = currentAuthUser();
@@ -136,6 +148,15 @@ public class ReviewServiceImpl implements ReviewService {
         reviewRecord.setFeedbackTag(validatedDTO.getFeedbackTag());
         reviewRecord.setStrategyFeedback(validatedDTO.getStrategyFeedback());
         reviewRecordMapper.updateById(reviewRecord);
+        decisionTraceService.save(
+                ATTENDANCE_EXCEPTION_BUSINESS_TYPE,
+                reviewRecord.getExceptionId(),
+                buildFeedbackRuleResult(reviewRecord.getId(), validatedDTO.getFeedbackTag()),
+                null,
+                REVIEW_FEEDBACK,
+                null,
+                buildFeedbackDecisionReason(validatedDTO.getStrategyFeedback())
+        );
         operationLogService.save(authUser.getUserId(), "REVIEW", authUser.getRealName() + "提交复核反馈" + validatedDTO.getReviewId());
     }
 
@@ -155,6 +176,27 @@ public class ReviewServiceImpl implements ReviewService {
             return reasonSummary;
         }
         return reasonSummary + "；" + actionSuggestion;
+    }
+
+    private String buildFeedbackRuleResult(Long reviewId, String feedbackTag) {
+        return "reviewId=" + reviewId + ", feedbackTag=" + feedbackTag;
+    }
+
+    private String buildFeedbackDecisionReason(String strategyFeedback) {
+        if (!StringUtils.hasText(strategyFeedback)) {
+            return "strategyFeedback=未填写";
+        }
+        return "strategyFeedback=" + strategyFeedback.trim();
+    }
+
+    private DecisionTraceVO findLatestDecisionTrace(List<DecisionTraceVO> traces) {
+        for (int index = traces.size() - 1; index >= 0; index--) {
+            DecisionTraceVO trace = traces.get(index);
+            if (!REVIEW_FEEDBACK.equals(trace.getFinalDecision())) {
+                return trace;
+            }
+        }
+        return null;
     }
 
     private ReviewRecordVO toVO(ReviewRecord entity) {
