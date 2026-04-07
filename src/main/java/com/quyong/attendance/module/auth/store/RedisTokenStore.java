@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 
 @Component
 @Profile("!test")
@@ -27,7 +28,11 @@ public class RedisTokenStore implements TokenStore {
     @Override
     public void store(String token, AuthUser authUser, Duration ttl) {
         try {
-            stringRedisTemplate.opsForValue().set(buildKey(token), objectMapper.writeValueAsString(authUser), ttl);
+            stringRedisTemplate.opsForValue().set(
+                    buildKey(token),
+                    objectMapper.writeValueAsString(TokenSession.from(authUser)),
+                    ttl
+            );
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("token 序列化失败", exception);
         }
@@ -41,7 +46,8 @@ public class RedisTokenStore implements TokenStore {
             return null;
         }
         try {
-            return objectMapper.readValue(value, AuthUser.class);
+            TokenSession tokenSession = objectMapper.readValue(value, TokenSession.class);
+            return tokenSession.toAuthUser();
         } catch (IOException exception) {
             stringRedisTemplate.delete(key);
             return null;
@@ -50,5 +56,88 @@ public class RedisTokenStore implements TokenStore {
 
     private String buildKey(String token) {
         return KEY_PREFIX + token;
+    }
+
+    static class TokenSession {
+
+        private Long userId;
+        private String username;
+        private String realName;
+        private String roleCode;
+        private Integer status;
+        private long expireAtEpochMilli;
+
+        public TokenSession() {
+        }
+
+        static TokenSession from(AuthUser authUser) {
+            TokenSession tokenSession = new TokenSession();
+            tokenSession.userId = authUser.getUserId();
+            tokenSession.username = authUser.getUsername();
+            tokenSession.realName = authUser.getRealName();
+            tokenSession.roleCode = authUser.getRoleCode();
+            tokenSession.status = authUser.getStatus();
+            tokenSession.expireAtEpochMilli = authUser.getExpireAt().toEpochMilli();
+            return tokenSession;
+        }
+
+        AuthUser toAuthUser() {
+            return new AuthUser(
+                    userId,
+                    username,
+                    realName,
+                    roleCode,
+                    status,
+                    Instant.ofEpochMilli(expireAtEpochMilli)
+            );
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getRealName() {
+            return realName;
+        }
+
+        public void setRealName(String realName) {
+            this.realName = realName;
+        }
+
+        public String getRoleCode() {
+            return roleCode;
+        }
+
+        public void setRoleCode(String roleCode) {
+            this.roleCode = roleCode;
+        }
+
+        public Integer getStatus() {
+            return status;
+        }
+
+        public void setStatus(Integer status) {
+            this.status = status;
+        }
+
+        public long getExpireAtEpochMilli() {
+            return expireAtEpochMilli;
+        }
+
+        public void setExpireAtEpochMilli(long expireAtEpochMilli) {
+            this.expireAtEpochMilli = expireAtEpochMilli;
+        }
     }
 }

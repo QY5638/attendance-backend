@@ -3,8 +3,6 @@ spring:
     name: attendance-backend
   profiles:
     active: dev
-  config:
-    import: optional:file:./application-local.yml
   jackson:
     default-property-inclusion: non_null
 
