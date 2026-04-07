@@ -1,18 +1,33 @@
 package com.quyong.attendance.module.user.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("`user`")
 public class User {
 
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
     private String username;
     private String password;
+
+    @TableField("realName")
     private String realName;
     private String gender;
     private String phone;
+
+    @TableField("deptId")
     private Long deptId;
+
+    @TableField("roleId")
     private Long roleId;
     private Integer status;
+
+    @TableField("createTime")
     private LocalDateTime createTime;
 
     public Long getId() {

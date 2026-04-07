@@ -6,6 +6,8 @@ import com.quyong.attendance.module.department.controller.DepartmentController;
 import com.quyong.attendance.module.department.service.impl.DepartmentServiceImpl;
 import com.quyong.attendance.module.device.controller.DeviceController;
 import com.quyong.attendance.module.device.service.impl.DeviceServiceImpl;
+import com.quyong.attendance.module.face.controller.FaceController;
+import com.quyong.attendance.module.face.service.impl.FaceServiceImpl;
 import com.quyong.attendance.module.role.controller.RoleController;
 import com.quyong.attendance.module.role.service.impl.RoleServiceImpl;
 import com.quyong.attendance.module.user.controller.UserController;
@@ -14,10 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class ModuleSkeletonBeansTest {
 
     @Autowired
@@ -35,5 +40,24 @@ class ModuleSkeletonBeansTest {
         assertNotNull(applicationContext.getBean(RoleServiceImpl.class));
         assertNotNull(applicationContext.getBean(DeviceController.class));
         assertNotNull(applicationContext.getBean(DeviceServiceImpl.class));
+        assertNotNull(applicationContext.getBean(FaceController.class));
+        assertNotNull(applicationContext.getBean(FaceServiceImpl.class));
+        assertBeanPresent("com.quyong.attendance.module.attendance.controller.AttendanceController");
+        assertBeanPresent("com.quyong.attendance.module.attendance.service.impl.AttendanceServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.controller.ExceptionController");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.controller.RuleController");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.ExceptionAnalysisOrchestratorImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.ExceptionQueryServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.exceptiondetect.service.impl.RuleServiceImpl");
+        assertBeanPresent("com.quyong.attendance.module.model.trace.service.impl.DecisionTraceServiceImpl");
+    }
+
+    private void assertBeanPresent(String className) {
+        try {
+            Class<?> beanClass = Class.forName(className);
+            assertNotNull(applicationContext.getBean(beanClass));
+        } catch (ClassNotFoundException exception) {
+            fail("缺少模块 Bean: " + className);
+        }
     }
 }

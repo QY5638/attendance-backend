@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:mysql://<db-host>:<db-port>/<db-name>?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: <db-username>
+    password: <db-password>
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: <redis-host>
+    port: <redis-port>
+    password: <redis-password>
+    database: 0
+    timeout: 3000ms
+
+app:
+  llm:
+    provider: <llm-provider>
+    base-url: <llm-base-url>
+    model: <llm-model>
+    api-key: <llm-api-key>
+    timeout-ms: 10000
+  map:
+    provider: <map-provider>
+    base-url: <map-base-url>
+    api-key: <map-api-key>
+    timeout-ms: 3000
+    multi-location-window-minutes: 30
+    multi-location-distance-meters: 3000

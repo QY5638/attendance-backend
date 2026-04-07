@@ -6,11 +6,28 @@ SET NAMES utf8mb4;
 -- 2. 本文件为演示和测试用途，采用固定主键，便于复现测试场景。
 -- 3. 如需重复执行，可直接在全新数据库中重新导入建表脚本后再执行本文件。
 
+-- 测试角色数据
+INSERT IGNORE INTO `role` (`id`, `code`, `name`, `description`, `status`) VALUES
+(1, 'ADMIN', '管理员', '系统管理员角色', 1),
+(2, 'EMPLOYEE', '员工', '普通员工角色', 1);
+
+-- 测试部门数据
+INSERT IGNORE INTO `department` (`id`, `name`, `description`) VALUES
+(1, '管理部', '负责系统管理与统筹'),
+(2, '技术部', '负责系统研发与维护'),
+(3, '行政部', '负责日常行政支持');
+
+-- 测试设备数据
+INSERT IGNORE INTO `device` (`id`, `name`, `location`, `status`, `description`) VALUES
+('DEV-001', '办公区A考勤机', '办公区A', 1, '办公区A默认设备'),
+('DEV-002', '办公区B考勤机', '办公区B', 1, '办公区B默认设备'),
+('DEV-009', '外部区域临时设备', '外部区域', 1, '用于异常场景演示');
+
 -- 测试用户数据
 INSERT IGNORE INTO `user` (`id`, `username`, `password`, `realName`, `gender`, `phone`, `deptId`, `roleId`, `status`, `createTime`) VALUES
-(9001, 'admin', '123456', '系统管理员', '男', '13800000001', 1, 1, 1, '2026-03-01 08:00:00'),
-(1001, 'zhangsan', '123456', '张三', '男', '13800000002', 2, 2, 1, '2026-03-01 08:10:00'),
-(1002, 'lisi', '123456', '李四', '女', '13800000003', 3, 2, 1, '2026-03-01 08:20:00');
+(9001, 'admin', '$2a$10$DII2rUub7WSmcTFOa/4AtumHq9r3yDGwQ4gHW1pvyx51.dE.Abliu', '系统管理员', '男', '13800000001', 1, 1, 1, '2026-03-01 08:00:00'),
+(1001, 'zhangsan', '$2a$10$TiGjwQPnktIxrPqz6JoTq..Ur4rmqn9zDtlvRvbZWIqcSDXGLQJZm', '张三', '男', '13800000002', 2, 2, 1, '2026-03-01 08:10:00'),
+(1002, 'lisi', '$2a$10$Cw71Sz28BSmh1fcOBJIAXOagYeMZjJRl6UEU4n8kQMGESv3RgL0SC', '李四', '女', '13800000003', 3, 2, 1, '2026-03-01 08:20:00');
 
 -- 测试人脸特征数据
 INSERT IGNORE INTO `faceFeature` (`id`, `userId`, `featureData`, `featureHash`, `encryptFlag`, `createTime`) VALUES
@@ -26,25 +43,55 @@ INSERT IGNORE INTO `attendanceRecord` (`id`, `userId`, `checkTime`, `checkType`,
 (2004, 1002, '2026-03-26 09:16:00', 'IN', 'DEV-002', '192.168.1.102', '办公区B', 95.20, 'ABNORMAL', '2026-03-26 09:16:00'),
 (2005, 1001, '2026-03-26 09:00:00', 'IN', 'DEV-001', '192.168.1.101', '办公区A', 96.40, 'ABNORMAL', '2026-03-26 09:00:00');
 
+-- 测试补卡申请数据
+INSERT IGNORE INTO `attendanceRepair` (`id`, `userId`, `checkType`, `checkTime`, `repairReason`, `status`, `recordId`, `createTime`) VALUES
+(2101, 1001, 'IN', '2026-03-27 09:03:00', '设备故障未成功打卡', 'PENDING', NULL, '2026-03-27 09:10:00');
+
 -- 测试异常记录数据
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`) VALUES
 (3001, 2003, 1002, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '疑似代打卡，设备与地点异常且人脸分数偏低', 'REVIEWED', '2026-03-26 08:59:00'),
 (3002, 2004, 1002, 'LATE', 'MEDIUM', 'RULE', '超过上班时间阈值，判定为迟到', 'PENDING', '2026-03-26 09:16:10'),
 (3003, 2005, 1001, 'REPEAT_CHECK', 'MEDIUM', 'RULE', '短时间内重复打卡', 'PENDING', '2026-03-26 09:00:10');
 
+-- 测试异常类型配置数据
+INSERT IGNORE INTO `exceptionType` (`id`, `code`, `name`, `description`, `status`, `createTime`, `updateTime`) VALUES
+(7201, 'PROXY_CHECKIN', '疑似代打卡', '疑似由他人代为完成考勤打卡', 1, '2026-03-20 09:00:00', '2026-03-20 09:00:00'),
+(7202, 'LATE', '迟到', '超过上班时间阈值的异常打卡', 1, '2026-03-20 09:01:00', '2026-03-20 09:01:00'),
+(7203, 'EARLY_LEAVE', '早退', '早于下班时间阈值的异常打卡', 1, '2026-03-20 09:02:00', '2026-03-20 09:02:00'),
+(7204, 'REPEAT_CHECK', '重复打卡', '短时间内重复提交同类打卡', 1, '2026-03-20 09:03:00', '2026-03-20 09:03:00'),
+(7205, 'ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1, '2026-03-20 09:04:00', '2026-03-20 09:04:00');
+
 -- 测试异常分析数据
-INSERT IGNORE INTO `exceptionAnalysis` (`id`, `exceptionId`, `inputSummary`, `modelResult`, `confidenceScore`, `decisionReason`, `suggestion`, `createTime`) VALUES
-(4001, 3001, '用户1002在异常设备DEV-009、外部区域打卡，人脸分数82.4', '疑似代打卡', 92.50, '设备异常、地点异常、分数临界且与历史行为不一致', '建议管理员人工复核', '2026-03-26 08:59:10');
+INSERT IGNORE INTO `promptTemplate` (`id`, `code`, `name`, `sceneType`, `version`, `content`, `status`, `remark`, `createTime`, `updateTime`) VALUES
+(8001, 'COMPLEX_EXCEPTION', '复杂异常分析模板', 'EXCEPTION_ANALYSIS', 'v1.0', '请基于输入摘要、风险特征和历史记录输出结构化结论、风险等级、判定依据与处理建议。', 'ENABLED', '默认复杂异常分析模板', '2026-03-20 10:00:00', '2026-03-20 10:00:00'),
+(8002, 'WARNING_BRIEF', '预警摘要模板', 'WARNING_ADVICE', 'v1.0', '请根据异常结论生成预警摘要、优先级和处置建议。', 'ENABLED', '默认预警摘要模板', '2026-03-20 10:05:00', '2026-03-20 10:05:00'),
+(8003, 'REVIEW_ASSISTANT', '复核辅助模板', 'REVIEW_ASSISTANT', 'v1.0', '请根据异常信息、历史记录和分析结果输出复核建议与相似案例摘要。', 'ENABLED', '默认复核辅助模板', '2026-03-20 10:10:00', '2026-03-20 10:10:00');
+
+-- 测试异常分析数据
+INSERT IGNORE INTO `exceptionAnalysis` (`id`, `exceptionId`, `promptTemplateId`, `inputSummary`, `modelResult`, `modelConclusion`, `confidenceScore`, `decisionReason`, `suggestion`, `reasonSummary`, `actionSuggestion`, `similarCaseSummary`, `promptVersion`, `createTime`) VALUES
+(4001, 3001, 8001, '用户1002在异常设备DEV-009、外部区域打卡，人脸分数82.4', '疑似代打卡，建议进入高优先级复核', 'PROXY_CHECKIN', 92.50, '设备异常、地点异常、分数临界且与历史行为不一致', '建议管理员人工复核', '设备切换、地点异常与临界人脸分数共同提升了代打卡风险', '建议优先由管理员确认是否存在代打卡行为', '历史上存在相似的设备异常与低分值组合案例', 'v1.0', '2026-03-26 08:59:10');
 
 -- 测试预警数据
-INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `status`, `sendTime`) VALUES
-(5001, 3001, 'RISK_WARNING', 'HIGH', 'PROCESSED', '2026-03-26 08:59:20'),
-(5002, 3002, 'ATTENDANCE_WARNING', 'MEDIUM', 'UNPROCESSED', '2026-03-26 09:16:20'),
-(5003, 3003, 'ATTENDANCE_WARNING', 'MEDIUM', 'UNPROCESSED', '2026-03-26 09:00:20');
+INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `status`, `priorityScore`, `aiSummary`, `disposeSuggestion`, `decisionSource`, `sendTime`) VALUES
+(5001, 3001, 'RISK_WARNING', 'HIGH', 'PROCESSED', 96.00, '该异常具备代打卡高风险特征，建议优先处理。', '建议管理员立即查看异常详情并发起复核。', 'MODEL_FUSION', '2026-03-26 08:59:20'),
+(5002, 3002, 'ATTENDANCE_WARNING', 'MEDIUM', 'UNPROCESSED', 68.00, '该员工存在迟到行为，建议继续观察近期出勤情况。', '建议记录本次异常并结合历史记录决定是否升级。', 'RULE', '2026-03-26 09:16:20'),
+(5003, 3003, 'ATTENDANCE_WARNING', 'MEDIUM', 'UNPROCESSED', 70.00, '该员工存在重复打卡行为，建议复查是否为误操作。', '建议查看同时间段原始打卡记录。', 'RULE', '2026-03-26 09:00:20');
 
 -- 测试复核数据
-INSERT IGNORE INTO `reviewRecord` (`id`, `exceptionId`, `reviewUserId`, `result`, `comment`, `reviewTime`) VALUES
-(6001, 3001, 9001, 'CONFIRMED', '确认存在代打卡风险，已记录处理', '2026-03-26 09:10:00');
+INSERT IGNORE INTO `reviewRecord` (`id`, `exceptionId`, `reviewUserId`, `result`, `comment`, `aiReviewSuggestion`, `similarCaseSummary`, `feedbackTag`, `strategyFeedback`, `reviewTime`) VALUES
+(6001, 3001, 9001, 'CONFIRMED', '确认存在代打卡风险，已记录处理', 'AI 建议优先确认设备异常和地点跨度是否合理，当前风险偏高。', '历史上同类外部设备+低分值场景中，多数最终被确认异常。', 'TRUE_POSITIVE', '建议保留该提示词模板并提高设备异常权重。', '2026-03-26 09:10:00');
+
+-- 测试模型调用日志数据
+INSERT IGNORE INTO `modelCallLog` (`id`, `businessType`, `businessId`, `promptTemplateId`, `inputSummary`, `outputSummary`, `status`, `latencyMs`, `errorMessage`, `createTime`) VALUES
+(9001, 'EXCEPTION_ANALYSIS', 3001, 8001, '用户1002异常设备打卡摘要', '输出疑似代打卡、高风险、建议人工复核', 'SUCCESS', 1260, NULL, '2026-03-26 08:59:08'),
+(9002, 'WARNING_ADVICE', 5001, 8002, '高风险异常预警生成摘要', '输出高优先级预警摘要和处置建议', 'SUCCESS', 880, NULL, '2026-03-26 08:59:18'),
+(9003, 'REVIEW_ASSISTANT', 3001, 8003, '异常3001复核辅助摘要', '输出复核建议与相似案例摘要', 'SUCCESS', 940, NULL, '2026-03-26 09:05:00');
+
+-- 测试决策追踪数据
+INSERT IGNORE INTO `decisionTrace` (`id`, `businessType`, `businessId`, `ruleResult`, `modelResult`, `finalDecision`, `confidenceScore`, `decisionReason`, `createTime`) VALUES
+(9501, 'ATTENDANCE_EXCEPTION', 3001, '规则层无法直接定性，仅命中设备异常和低分值特征', '模型判断为疑似代打卡，高风险，建议人工复核', '最终标记为高风险复杂异常并生成预警', 92.50, '规则特征与模型结论一致，提升至高风险并进入复核。', '2026-03-26 08:59:12'),
+(9502, 'ATTENDANCE_EXCEPTION', 3002, '超过上班时间阈值', NULL, 'LATE', NULL, '规则已判定迟到，待管理员人工确认。', '2026-03-26 09:16:12'),
+(9503, 'ATTENDANCE_EXCEPTION', 3003, '短时间内重复打卡', NULL, 'REPEAT_CHECK', NULL, '规则已判定重复打卡，待管理员人工确认。', '2026-03-26 09:00:12');
 
 -- 测试操作日志数据
 INSERT IGNORE INTO `operationLog` (`id`, `userId`, `type`, `content`, `operationTime`) VALUES
