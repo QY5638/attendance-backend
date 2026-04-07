@@ -14,4 +14,7 @@ public interface UserMapper extends BaseMapper<User> {
 
     @Select("SELECT COUNT(*) FROM `user` WHERE deptId = #{deptId}")
     long countByDeptId(@Param("deptId") Long deptId);
+
+    @Select("SELECT COUNT(*) FROM `user` WHERE roleId = #{roleId}")
+    long countByRoleId(@Param("roleId") Long roleId);
 }

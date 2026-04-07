@@ -1,18 +1,35 @@
-package com.quyong.attendance.module.role.entity;
+package com.quyong.attendance.module.warning.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
-@TableName("`role`")
-public class Role {
+import java.time.LocalDateTime;
+
+@TableName("riskLevel")
+public class RiskLevel {
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
+
+    @TableField("code")
     private String code;
+
+    @TableField("name")
     private String name;
+
+    @TableField("description")
     private String description;
+
+    @TableField("status")
     private Integer status;
+
+    @TableField("createTime")
+    private LocalDateTime createTime;
+
+    @TableField("updateTime")
+    private LocalDateTime updateTime;
 
     public Long getId() {
         return id;
@@ -52,5 +69,21 @@ public class Role {
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
+
+    public LocalDateTime getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(LocalDateTime updateTime) {
+        this.updateTime = updateTime;
     }
 }
