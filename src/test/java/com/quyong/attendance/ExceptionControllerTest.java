@@ -18,8 +18,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.util.DigestUtils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +32,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.llm.provider=qwen",
+        "app.llm.model=qwen-plus"
+})
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 class ExceptionControllerTest {
@@ -187,6 +192,61 @@ class ExceptionControllerTest {
         );
         org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("clientDeviceChanged=true"));
         org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("clientLocationChanged=true"));
+    }
+
+    @Test
+    void shouldRecordQwenProviderInModelCallLogWhenComplexCheckSucceeds() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请基于输入摘要输出结构化分析结果", "ENABLED", "默认模板");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockResponse());
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/exception/complex-check")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"recordId\":2006,\"userId\":1002,\"riskFeatures\":{\"faceScore\":81.2,\"deviceChanged\":true,\"locationChanged\":true,\"historyAbnormalCount\":2}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
+        long exceptionId = response.path("data").path("exceptionId").asLong();
+
+        String inputSummary = jdbcTemplate.queryForObject(
+                "SELECT inputSummary FROM modelCallLog WHERE businessType = 'EXCEPTION_ANALYSIS' AND businessId = ?",
+                String.class,
+                exceptionId
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("llmProvider=qwen"));
+    }
+
+    @Test
+    void shouldRecordPromptTemplateContextInModelCallLogWhenComplexCheckSucceeds() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        String promptContent = "请重点关注设备跳变并输出结构化结论";
+        String promptFingerprint = DigestUtils.md5DigestAsHex(promptContent.getBytes(StandardCharsets.UTF_8));
+        insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v2.1", promptContent, "ENABLED", "模板已更新");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockResponse());
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/exception/complex-check")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"recordId\":2006,\"userId\":1002,\"riskFeatures\":{\"faceScore\":81.2,\"deviceChanged\":true,\"locationChanged\":true,\"historyAbnormalCount\":2}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
+        long exceptionId = response.path("data").path("exceptionId").asLong();
+
+        String inputSummary = jdbcTemplate.queryForObject(
+                "SELECT inputSummary FROM modelCallLog WHERE businessType = 'EXCEPTION_ANALYSIS' AND businessId = ?",
+                String.class,
+                exceptionId
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("promptVersion=v2.1"));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("promptFingerprint=" + promptFingerprint));
     }
 
     @Test

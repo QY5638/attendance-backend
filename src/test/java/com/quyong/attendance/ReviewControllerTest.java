@@ -391,6 +391,69 @@ class ReviewControllerTest {
     }
 
     @Test
+    void shouldAppendDecisionTraceWhenSavingReviewFeedback() throws Exception {
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"FALSE_POSITIVE\",\"strategyFeedback\":\"建议降低此类规则敏感度\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        Integer traceCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM decisionTrace WHERE businessType = 'ATTENDANCE_EXCEPTION' AND businessId = ?",
+                Integer.class,
+                3001L
+        );
+        String finalDecision = jdbcTemplate.queryForObject(
+                "SELECT finalDecision FROM decisionTrace WHERE businessType = 'ATTENDANCE_EXCEPTION' AND businessId = ? ORDER BY id DESC LIMIT 1",
+                String.class,
+                3001L
+        );
+        String ruleResult = jdbcTemplate.queryForObject(
+                "SELECT ruleResult FROM decisionTrace WHERE businessType = 'ATTENDANCE_EXCEPTION' AND businessId = ? ORDER BY id DESC LIMIT 1",
+                String.class,
+                3001L
+        );
+        String decisionReason = jdbcTemplate.queryForObject(
+                "SELECT decisionReason FROM decisionTrace WHERE businessType = 'ATTENDANCE_EXCEPTION' AND businessId = ? ORDER BY id DESC LIMIT 1",
+                String.class,
+                3001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(2), traceCount);
+        org.junit.jupiter.api.Assertions.assertEquals("REVIEW_FEEDBACK", finalDecision);
+        org.junit.jupiter.api.Assertions.assertTrue(ruleResult.contains("reviewId=6001"));
+        org.junit.jupiter.api.Assertions.assertTrue(ruleResult.contains("feedbackTag=FALSE_POSITIVE"));
+        org.junit.jupiter.api.Assertions.assertTrue(decisionReason.contains("strategyFeedback=建议降低此类规则敏感度"));
+    }
+
+    @Test
+    void shouldKeepAssistantDecisionReasonAfterFeedbackTraceIsAppended() throws Exception {
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/feedback")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reviewId\":6001,\"feedbackTag\":\"NEEDS_TUNING\",\"strategyFeedback\":\"建议微调提示词\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(get("/api/review/3001/assistant")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.decisionReason").value("规则与模型结论一致，建议人工复核"))
+                .andExpect(jsonPath("$.data.confidenceScore").value(92.5));
+    }
+
+    @Test
     void shouldMapDeprecatedFeedbackTagToTruePositive() throws Exception {
         insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "第一次复核", "建议优先人工确认", "存在相似案例", null, null, "2026-03-26 09:10:00");
         String adminToken = loginAndExtractToken("admin", "123456");
