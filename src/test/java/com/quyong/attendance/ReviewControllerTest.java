@@ -230,6 +230,30 @@ class ReviewControllerTest {
     }
 
     @Test
+    void shouldKeepLazyGeneratedWarningProcessedAfterReviewSubmit() throws Exception {
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(post("/api/review/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"exceptionId\":3001,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"人工确认异常\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.records[0].status").value("PROCESSED"));
+    }
+
+    @Test
     void shouldRejectReviewSubmitWhenExceptionMissing() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
 
@@ -645,6 +669,31 @@ class ReviewControllerTest {
         );
     }
 
+    private void insertWarningRecord(Long id,
+                                     Long exceptionId,
+                                     String type,
+                                     String level,
+                                     String status,
+                                     String priorityScore,
+                                     String aiSummary,
+                                     String disposeSuggestion,
+                                     String decisionSource,
+                                     String sendTime) {
+        jdbcTemplate.update(
+                "INSERT INTO warningRecord (id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id,
+                exceptionId,
+                type,
+                level,
+                status,
+                priorityScore,
+                aiSummary,
+                disposeSuggestion,
+                decisionSource,
+                sendTime
+        );
+    }
+
     private void insertExceptionAnalysis(Long id,
                                          Long exceptionId,
                                          Long promptTemplateId,
@@ -694,31 +743,6 @@ class ReviewControllerTest {
                 finalDecision,
                 confidenceScore,
                 decisionReason
-        );
-    }
-
-    private void insertWarningRecord(Long id,
-                                     Long exceptionId,
-                                     String type,
-                                     String level,
-                                     String status,
-                                     String priorityScore,
-                                     String aiSummary,
-                                     String disposeSuggestion,
-                                     String decisionSource,
-                                     String sendTime) {
-        jdbcTemplate.update(
-                "INSERT INTO warningRecord (id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                id,
-                exceptionId,
-                type,
-                level,
-                status,
-                priorityScore,
-                aiSummary,
-                disposeSuggestion,
-                decisionSource,
-                sendTime
         );
     }
 
