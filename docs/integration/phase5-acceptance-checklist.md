@@ -3,21 +3,21 @@
 ## 1. 用途与适用范围
 
 - 本清单用于 Phase 5 最终验收记录，聚焦前后端本地联调后的最终人工验收收口，不替代后端 README、前端 README 与本地联调手册。
-- 当前后端工作目录：`D:\Graduation project\backend\.worktrees\phase5-docs-runbook`
-- 当前前端工作目录：`D:\Graduation project\frontend\.worktrees\phase5-docs-runbook`
+- 当前后端工作目录：`D:\Graduation project\backend`
+- 当前前端工作目录：`D:\Graduation project\frontend`
 - 本清单默认以前置文档已完成且已校对为前提：`README.md`（后端）、`README.md`（前端）、`docs/integration/phase5-local-runbook.md`。
 - 首个完成门槛只看最小主链：`登录 -> 异常查询 -> 预警查询 -> 复核提交 -> 统计查询`。
-- 增强链路仅作为可选增强验收记录，不纳入首个完成门槛。
+- 若继续用于“完整系统最终完成判定”补证，`EMPLOYEE` 侧 `人脸采集 -> 打卡 -> 基础/复杂异常 -> 预警 -> 复核 -> 统计` 不再按可选增强处理。
 
 ## 2. 验收前准备
 
 ### 2.1 文档与工作目录确认
 
-- [x] 当前后端工作目录确认为 `D:\Graduation project\backend\.worktrees\phase5-docs-runbook`
-- [x] 当前前端工作目录确认为 `D:\Graduation project\frontend\.worktrees\phase5-docs-runbook`
-- [x] 已完成并可回查后端首包文档：`D:\Graduation project\backend\.worktrees\phase5-docs-runbook\README.md`
-- [x] 已完成并可回查前端首包文档：`D:\Graduation project\frontend\.worktrees\phase5-docs-runbook\README.md`
-- [x] 已完成并可回查联调首包文档：`D:\Graduation project\backend\.worktrees\phase5-docs-runbook\docs\integration\phase5-local-runbook.md`
+- [x] 当前后端工作目录确认为 `D:\Graduation project\backend`
+- [x] 当前前端工作目录确认为 `D:\Graduation project\frontend`
+- [x] 已完成并可回查后端首包文档：`D:\Graduation project\backend\README.md`
+- [x] 已完成并可回查前端首包文档：`D:\Graduation project\frontend\README.md`
+- [x] 已完成并可回查联调首包文档：`D:\Graduation project\backend\docs\integration\phase5-local-runbook.md`
 
 ### 2.2 环境、端口与数据基线确认
 
@@ -27,7 +27,7 @@
 - [x] 后端数据库已按 `sql/schema/数据库建表SQL.sql` -> `sql/seed/测试数据插入SQL.sql` 顺序初始化，并确认应用连接到 `system` 库
 - [x] 最小主链验收优先复用仓库 seed 数据，不把新增增强链路作为前置条件
 
-> 当前说明：截至 `2026-04-07`，`phase5-docs-runbook` 两个 worktree 的私有配置文件已补齐，真实本地启动与界面级留证已完成；同时为适配当前真实库，还对 `exceptionAnalysis`、`warningRecord`、`riskLevel`、`decisionTrace`、`modelCallLog` 做了最小 schema 同步。
+> 当前说明：截至 `2026-04-08`，当前本地与远端基线都只保留 `main`；已清理历史 `phase5-docs-runbook` worktree。后续若需修正文档或补证，实际操作必须放在非 `main` 的隔离分支/worktree 中，但本文中的当前工作目录、文档路径与证据口径统一按主仓库根目录 `D:\Graduation project\backend`、`D:\Graduation project\frontend` 记录；历史 Phase 5 页面级留证继续保留在仓库内 `docs/integration/evidence/phase5-ui`。同时，为适配当前真实库，`exceptionAnalysis`、`warningRecord`、`riskLevel`、`decisionTrace`、`modelCallLog` 的最小 schema 同步口径仍然有效。
 
 ### 2.3 最小命令校验
 
@@ -38,59 +38,59 @@
 
 #### 2.3.1 后端最小测试
 
-- 操作：在 `D:\Graduation project\backend\.worktrees\phase5-docs-runbook` 执行 `mvn "-Dtest=DeviceManagementIntegrationTest,AuthSecurityIntegrationTest,ModuleSkeletonBeansTest" test`。
+- 操作：在后端仓库根目录 `D:\Graduation project\backend` 执行 `mvn "-Dtest=DeviceManagementIntegrationTest,AuthSecurityIntegrationTest,ModuleSkeletonBeansTest" test`。
 - 预期：测试命令执行成功，最小测试集全部通过，无新增阻塞失败。
-- 证据：`后端最小测试 | 2026-04-07 17:43 / backend\.worktrees\phase5-docs-runbook | Maven surefire 输出（Tests run: 41, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS）`
+- 证据：`后端最小测试 | 2026-04-07 17:43 / backend | Maven surefire 输出（Tests run: 41, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS）`
 - 失败时记录：记录失败测试类名、报错摘要、相关日志位置、是否为环境问题或代码问题。
 
 #### 2.3.2 后端编译
 
-- 操作：在 `D:\Graduation project\backend\.worktrees\phase5-docs-runbook` 执行 `mvn -DskipTests compile`。
+- 操作：在后端仓库根目录 `D:\Graduation project\backend` 执行 `mvn -DskipTests compile`。
 - 预期：编译成功结束，无编译错误、无资源加载阻塞问题。
-- 证据：`后端编译 | 2026-04-07 17:43 / backend\.worktrees\phase5-docs-runbook | Maven compile 输出（BUILD SUCCESS）`
+- 证据：`后端编译 | 2026-04-07 17:43 / backend | Maven compile 输出（BUILD SUCCESS）`
 - 失败时记录：记录失败模块、报错摘要、相关日志位置、是否可稳定复现。
 
 #### 2.3.3 前端测试
 
-- 操作：在 `D:\Graduation project\frontend\.worktrees\phase5-docs-runbook` 执行 `npm test`。
+- 操作：在前端仓库根目录 `D:\Graduation project\frontend` 执行 `npm test`。
 - 预期：前端测试命令执行成功，现有测试全部通过，无阻塞性报错。
-- 证据：`前端测试 | 2026-04-07 17:43 / frontend\.worktrees\phase5-docs-runbook | Vitest 输出（36 文件、169 测试通过）`
+- 证据：`前端测试 | 2026-04-07 17:43 / frontend | Vitest 输出（36 文件、169 测试通过）`
 - 失败时记录：记录失败用例名、报错摘要、相关日志位置、是否为环境依赖问题。
 
 #### 2.3.4 前端构建
 
-- 操作：在 `D:\Graduation project\frontend\.worktrees\phase5-docs-runbook` 执行 `npm run build`。
+- 操作：在前端仓库根目录 `D:\Graduation project\frontend` 执行 `npm run build`。
 - 预期：构建成功结束，产物生成正常，无阻塞性构建错误。
-- 证据：`前端构建 | 2026-04-07 17:43 / frontend\.worktrees\phase5-docs-runbook | Vite build 输出（成功，存在 chunk 大小告警）`
+- 证据：`前端构建 | 2026-04-07 17:43 / frontend | Vite build 输出（成功，存在 chunk 大小告警）`
 - 失败时记录：记录失败阶段、报错摘要、相关日志位置、是否与环境变量或依赖缺失有关。
 
-### 2.4 可选增强链路边界确认
+### 2.4 最终完成补证边界确认
 
 - [x] 已明确最小主链只覆盖 `登录 -> 异常查询 -> 预警查询 -> 复核提交 -> 统计查询`
-- [x] 已明确增强链路只在单独的可选增强验收区记录，不与必验项混排
-- [x] 已明确本轮先完成 seed 优先主链，再决定是否补充可选增强验收记录
+- [x] 已明确 `Phase 5` 首个完成门槛与“完整系统最终完成判定”补证边界需要分开记录
+- [x] 已明确 `EMPLOYEE` 侧 `人脸采集 -> 打卡 -> 基础/复杂异常 -> 预警 -> 复核 -> 统计` 属于完整系统最终完成判定必须补证项
 
 ## 3. 启动验收
 
 ### 3.1 后端启动验收
 
 
-- [x] 在 `D:\Graduation project\backend\.worktrees\phase5-docs-runbook` 执行 `mvn spring-boot:run`
+- [x] 在后端仓库根目录 `D:\Graduation project\backend` 执行 `mvn spring-boot:run`
 - [x] 启动日志未出现数据源、Redis、端口占用类阻塞错误
 - [x] 服务实际监听在 `8080`
 - [x] 本次启动读取的是仓库根目录下的 `application-local.yml`
 
-> 证据：`后端真实启动 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | /api/health => {"code":200,"message":"success","data":"ok"}`
+> 证据：`后端真实启动 | 2026-04-07 / backend | /api/health => {"code":200,"message":"success","data":"ok"}`
 
 ### 3.2 前端启动验收
 
 
-- [x] 如为首次启动，已在 `D:\Graduation project\frontend\.worktrees\phase5-docs-runbook` 执行 `npm install`
+- [x] 如为首次启动，已在前端仓库根目录 `D:\Graduation project\frontend` 执行 `npm install`
 - [x] 在前端仓库根目录执行 `npm run dev`
 - [x] 页面可通过本地开发地址访问，未额外指定端口时按默认 `5173` 验证
 - [x] 前端请求仍通过 `/api` 代理到 `http://127.0.0.1:8080`
 
-> 证据：`前端真实启动 | 2026-04-07 / frontend\.worktrees\phase5-docs-runbook | http://localhost:5173 => 200`
+> 证据：`前端真实启动 | 2026-04-07 / frontend | http://localhost:5173 => 200`
 
 ### 3.3 启动口径复核
 
@@ -106,74 +106,75 @@
 
 - 操作：使用 seed 优先口径验证登录，优先使用 `admin/123456` 登录并进入业务页面。
 - 预期：登录成功，页面进入业务首页或默认业务页，后续接口请求不再因未认证失败。
-- 证据：`登录真实验收 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | POST /api/auth/login => code=200, roleCode=ADMIN, realName=系统管理员；页面截图：docs/integration/evidence/phase5-ui/01-login.png, 02-dashboard.png`
+- 证据：`登录真实验收 | 2026-04-07 / backend | POST /api/auth/login => code=200, roleCode=ADMIN, realName=系统管理员；页面截图：docs/integration/evidence/phase5-ui/01-login.png, 02-dashboard.png`
 - 失败时记录：若后续做真实 UI 验收失败，记录使用账号、页面提示、接口状态码、响应摘要、浏览器控制台或网络面板关键信息。
 
 #### 4.1.2 异常查询
 
 - 操作：进入异常查询页，优先查询 seed 中的规则异常 `3002` 或 `3003`，或按页面默认排序直接定位对应记录。
 - 预期：异常列表可正常加载，至少能定位到 `3002` 或 `3003` 中的一条规则异常记录。
-- 证据：`异常查询真实验收 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | GET /api/exception/list => total=3；页面截图：docs/integration/evidence/phase5-ui/03-exception.png`
+- 证据：`异常查询真实验收 | 2026-04-07 / backend | GET /api/exception/list => total=3；页面截图：docs/integration/evidence/phase5-ui/03-exception.png`
 - 失败时记录：若后续做真实 UI 验收失败，记录查询条件、实际返回结果、页面报错或空列表表现、相关接口返回摘要。
 
 #### 4.1.3 预警查询
 
 - 操作：进入预警查询页，优先查询与上述异常对应的 `5002` 或 `5003`，确认待处理记录可见。
 - 预期：预警列表可正常加载，能定位到与 seed 异常对应的预警记录，且初始状态为 `UNPROCESSED` 或等价待处理状态。
-- 证据：`预警查询真实验收 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | GET /api/warning/list?status=UNPROCESSED => total=1，目标预警=5003；页面截图：docs/integration/evidence/phase5-ui/04-warning.png`
+- 证据：`预警查询真实验收 | 2026-04-07 / backend | GET /api/warning/list?status=UNPROCESSED => total=1，目标预警=5003；页面截图：docs/integration/evidence/phase5-ui/04-warning.png`
 - 失败时记录：若后续做真实 UI 验收失败，记录查询条件、实际状态、页面报错或空列表表现、相关接口返回摘要。
 
 #### 4.1.4 复核提交
 
 - 操作：从异常页或预警页进入复核页，对 `3002` 或 `3003` 提交一次复核，并回查关联预警状态。
 - 预期：复核页可基于目标 `exceptionId` 正常初始化，提交成功后，对应预警状态更新为 `PROCESSED` 或等价已处理状态。
-- 证据：`复核提交流转真实验收 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | POST /api/review/submit => code=200, reviewResult=CONFIRMED，warning 5003: UNPROCESSED -> PROCESSED；页面截图：docs/integration/evidence/phase5-ui/05-review.png`
+- 证据：`复核提交流转真实验收 | 2026-04-07 / backend | POST /api/review/submit => code=200, reviewResult=CONFIRMED，warning 5003: UNPROCESSED -> PROCESSED；页面截图：docs/integration/evidence/phase5-ui/05-review.png`
 - 失败时记录：若后续做真实 UI 验收失败，记录入口页面、目标异常编号、提交参数摘要、失败提示、接口状态码、状态未更新的实际表现。
 
 #### 4.1.5 统计查询
 
 - 操作：复核提交后进入统计页，查询当前库内异常汇总结果。
 - 预期：统计页可正常返回当前库内异常汇总数据，且结果与当前 seed 主链数据口径一致。
-- 证据：`统计查询真实验收 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | GET /api/statistics/summary => code=200；页面截图：docs/integration/evidence/phase5-ui/06-statistics.png`
+- 证据：`统计查询真实验收 | 2026-04-07 / backend | GET /api/statistics/summary => code=200；页面截图：docs/integration/evidence/phase5-ui/06-statistics.png`
 - 失败时记录：若后续做真实 UI 验收失败，记录统计条件、页面表现、接口状态码、返回空结果或异常结果的具体描述。
 
 ### 4.2 主链范围限制
 
 - [x] 最小主链仅覆盖 `登录 -> 异常查询 -> 预警查询 -> 复核提交 -> 统计查询`
 - [x] 本轮最终验收优先复用仓库 seed 数据完成主链，不以新增现场数据作为必验前提
-- [x] 本轮最终验收先完成 seed 优先主链，再决定是否追加可选增强验收记录
+- [x] 本轮 seed 优先主链已先完成，完整系统最终完成判定所需补证单独记录在第 `5.2.1` 节
 
 ### 4.3 必验项记录完成条件
 
 - [x] 第 2.3 节四项命令类必验项均已填写“操作 / 预期 / 证据 / 失败时记录”
 - [x] 第 4.1 节五项主链必验项均已填写“操作 / 预期 / 证据 / 失败时记录”
-- [x] 必验项证据已能独立支撑首个完成门槛结论，不依赖增强链路补证
+- [x] 必验项证据已能独立支撑 `Phase 5` 首个完成门槛结论，不依赖第 `5.2.1` 节之外的补充验收
 
-> 当前说明：命令类必验项、真实本地启动、真实 API 主链与页面级留证均已完成，首个完成门槛已达成；可选增强链路仍未验证，但不阻塞 Phase 5 完成。
+> 当前说明：命令类必验项、真实本地启动、真实 API 主链与页面级留证均已完成，`Phase 5` 首个完成门槛已达成；但若用于“完整系统最终完成判定”，还必须补齐第 `5.2.1` 节 `EMPLOYEE` 侧全链证据。
 >
-> 测试侧合并结果：`主链测试侧验收 | 2026-04-07 18:47 / backend\.worktrees\phase5-docs-runbook | Maven surefire 输出（tests=5, failures=0, errors=0, skipped=0, BUILD SUCCESS）`
+> 测试侧合并结果：`主链测试侧验收 | 2026-04-07 18:47 / backend | Maven surefire 输出（tests=5, failures=0, errors=0, skipped=0, BUILD SUCCESS）`
 >
-> 真实主链合并结果：`真实 API 主链 | 2026-04-07 / backend\.worktrees\phase5-docs-runbook | login=200, exception=200, warning=200, review=200, statistics=200`
+> 真实主链合并结果：`真实 API 主链 | 2026-04-07 / backend | login=200, exception=200, warning=200, review=200, statistics=200`
 
-## 5. 可选增强验收
+## 5. 最终完成补充验收
 
-- 本区仅记录可选增强，不纳入首个完成门槛，也不替代第 2.3 节和第 4.1 节必验项。
-- 本区之外不再单独列出增强项名称，避免与必验项混排。
+- 本区用于补齐“完整系统最终完成判定”所需的补充证据，不回退第 2.3 节和第 4.1 节已经完成的 `Phase 5` 首个完成门槛结果。
+- 本区中只有 `5.2.1` 属于当前最终完成判定的硬性补证项，其余条目仍按补充记录处理。
 
 ### 5.1 填写规则
 
-- 可选增强项不阻塞首个 Phase 5 完成，也不作为最终通过判定的前置条件。
-- 如未验证，可只记录“未验证原因”；无需为了补齐本区记录而额外执行增强链路验证。
-- 如已验证，建议记录“是否已验证 / 若已验证，证据放在哪里”，并可补充简短结果说明。
+- `5.2.1` 用于记录 `EMPLOYEE` 侧 `人脸采集 -> 打卡 -> 基础/复杂异常 -> 预警 -> 复核 -> 统计` 全链补证；在该项完成前，本清单不能单独支撑“完整系统已完成”的结论。
+- `5.2.2` 及之后的条目仍按补充记录处理；如未验证，可只记录“未验证原因”。
+- 如已验证，统一记录“是否已验证 / 证据放在哪里 / 补充说明”，并优先写明可回查的接口结果、日志路径或截图编号。
 
-### 5.2 可选增强项记录模板
+### 5.2 补充验收项记录
 
-#### 5.2.1 实时新打卡链路
+#### 5.2.1 `EMPLOYEE` 侧人脸采集 -> 打卡 -> 基础/复杂异常 -> 预警 -> 复核 -> 统计
 
-- 是否已验证：否
-- 未验证原因：本轮优先完成 seed 优先的最小主链；实时新打卡仍需要员工账号、人脸采集结果与可用 `imageData` 配合验证。
-- 若已验证，证据放在哪里（按第 6 节格式填写）：
-- 补充说明：
+- 是否已验证：是
+- 未验证原因：无。
+- 必须至少覆盖的子证据：`EMPLOYEE` 登录、人脸采集成功、打卡成功、基础/复杂异常可查询、关联预警可查询、复核提交流转、统计结果可回查。
+- 若已验证，证据放在哪里（按第 6 节格式填写）：`EMPLOYEE 全链补证 | 2026-04-08 / docs/integration/evidence/final-employee-chain/2026-04-08-zhangsan-full-chain.md | login=200, face/register=200, face/verify=200, checkin=200, rule+model exception generated, warning/review/statistics verified；本地运行时与真实库修复见 docs/integration/evidence/final-employee-chain/2026-04-08-local-runtime-and-schema.md`
+- 补充说明：本轮使用 `EMPLOYEE zhangsan/123456` 完成自助人脸采集与打卡；同一条新记录 `recordId=2041564164937326593` 上同时形成 `ILLEGAL_TIME` 规则异常与 `PROXY_CHECKIN` 复杂异常。`ADMIN` 侧已回查对应预警，并对复杂异常 `exceptionId=2041564165067350018` 提交复核，关联预警 `warningId=2041564165067350022` 已回写为 `PROCESSED`，`/api/statistics/summary` 继续返回 `code=200`。
 
 #### 5.2.2 地图展示
 
@@ -236,28 +237,30 @@
 
 ### 7.1 最终通过判定口径
 
- - 最终通过判定只看第 2.3 节四项命令类必验项、第 3.1-3.3 节真实本地启动与口径复核，以及第 4.1 节五项主链必验项。
-- 第 5 节可选增强验收仅作补充记录：已验证可附证据，未验证可写明原因，但不影响最终通过判定。
-- 任一必验项缺少“操作 / 预期 / 证据 / 失败时记录”，或存在未关闭的阻塞性失败，都不能登记为“通过”。
-- 截至 `2026-04-07`，第 2.3 节命令类验收、第 3 节真实本地启动、第 4.1 节最小主链验收以及第 6 节证据与截图要求均已落实，当前结论为“通过”，允许把 `Phase 5` 标记为完成。
+- 若本清单只用于 `Phase 5` 首个完成门槛，判定只看第 2.3 节四项命令类必验项、第 3.1-3.3 节真实本地启动与口径复核，以及第 4.1 节五项主链必验项。
+- 若本清单继续用于“完整系统最终完成判定”，还必须补齐第 `5.2.1` 节 `EMPLOYEE` 侧全链证据，并与状态文档第 `6` 节、第 `12` 节结论保持一致。
+- 任一必验项缺少“操作 / 预期 / 证据 / 失败时记录”，或第 `5.2.1` 节仍缺失当前轮所需硬证据，都不能登记为“完整系统已完成”。
+- 截至 `2026-04-08`，第 2.3 节命令类验收、第 3 节真实本地启动、第 4.1 节最小主链验收以及第 `5.2.1` 节 `EMPLOYEE` 全链补证均已落实；本清单已补齐用于“完整系统最终完成判定”的主链证据。是否允许在状态文档中写“项目已完成”，仍需同时结合本轮记录的本地运行时与真实库漂移风险统一判断。
 
 ### 7.2 允许标记 Phase 5 完成的条件
 
 - 第 2.3 节四项命令类必验项已完成记录，并具备可回查证据。
 - 第 3.1 节、`3.2` 节、`3.3` 节真实本地启动、代理、配置文件位置与口径复核已完成，并具备可回查证据。
 - 第 4.1 节五项主链必验项已完成记录，并具备可回查证据。
-- 最终通过判定已明确登记，且结论仅基于必验项得出，不依赖可选增强补证。
+- 最终通过判定已明确登记，且 `Phase 5` 完成结论仅基于必验项得出，不依赖第 `5.2.1` 节之外的补充记录。
 - 后端 README、前端 README、`docs/integration/phase5-local-runbook.md`、本清单与状态文档已完成一致性复核。
 - 已知问题已完成阻塞/非阻塞归类；若仍有非阻塞问题，已明确写明“不阻塞最终通过判定”。
+- 若要继续支撑“完整系统最终完成判定”，第 `5.2.1` 节 `EMPLOYEE` 侧全链补证也已完成并可回查。
 
 ### 7.3 不允许标记 Phase 5 完成的情况
 
 - 第 2.3 节或第 4.1 节仍有未填写、未验证、缺证据或缺失败记录的必验项。
 - 第 3.1 节、`3.2` 节或 `3.3` 节真实本地启动与口径复核尚未完成，或无法证明工作区私有配置、代理、端口、启动结果与文档一致。
-- 仅完成 README、联调手册或可选增强记录，但未完成必验项核对与最终通过判定。
-- 仅凭第 5 节可选增强验收结果补足结论，或把可选增强与必验项混合作为“通过”依据。
+- 仅完成 README、联调手册或第 `5.2.1` 节之外的补充记录，但未完成必验项核对与最终通过判定。
+- 仅凭第 `5.2.1` 节之外的补充记录补足结论，或把补充记录与必验项混合作为“通过”依据。
 - 后端 README、前端 README、联调手册、本清单与状态文档之间仍存在路径、命令、口径或完成边界不一致。
 - 第二包验收清单与状态文档尚未收口确认一致时，提前在任一文档中写“Phase 5 已完成”。
+- 若要把本清单直接作为“完整系统已完成”依据，但第 `5.2.1` 节 `EMPLOYEE` 侧全链证据仍缺失。
 
 ### 7.4 已知问题记录模板
 
@@ -280,9 +283,9 @@
 - 关联必验项：`2.3.4` 前端构建
 - 发现时间：2026-04-07
 - 现象描述：`npm run build` 成功，但 Vite 输出 chunk 大小告警。
-- 复现步骤：在 `frontend/.worktrees/phase5-docs-runbook` 运行 `npm run build`。
+- 复现步骤：在前端仓库根目录 `D:\Graduation project\frontend` 运行 `npm run build`。
 - 当前结论：当前不阻塞 Phase 5 首个完成判定，但需要保留记录。
 - 是否阻塞最终通过判定：否
 - 临时处理或绕过方式：保持现状并登记为非阻塞已知项。
-- 证据位置：`前端构建 | 2026-04-07 17:43 / frontend\.worktrees\phase5-docs-runbook | Vite build 输出（成功，存在 chunk 大小告警）`
+- 证据位置：`前端构建 | 2026-04-07 17:43 / frontend | Vite build 输出（成功，存在 chunk 大小告警）`
 - 后续跟进说明：如后续收尾前仍存在，继续在最终结果中保留该说明。
