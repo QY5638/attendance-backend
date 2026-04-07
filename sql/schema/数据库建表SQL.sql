@@ -26,6 +26,8 @@ CREATE TABLE `device` (
   `id` VARCHAR(64) PRIMARY KEY COMMENT '设备编号',
   `name` VARCHAR(100) NOT NULL COMMENT '设备名称',
   `location` VARCHAR(255) DEFAULT NULL COMMENT '设备位置',
+  `longitude` DECIMAL(10,6) DEFAULT NULL COMMENT '设备经度',
+  `latitude` DECIMAL(10,6) DEFAULT NULL COMMENT '设备纬度',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '设备状态',
   `description` VARCHAR(255) DEFAULT NULL COMMENT '设备描述'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
@@ -95,6 +97,8 @@ CREATE TABLE `attendanceRecord` (
   `deviceId` VARCHAR(64) NOT NULL COMMENT '设备ID',
   `ipAddr` VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',
   `location` VARCHAR(255) DEFAULT NULL COMMENT '打卡地点',
+  `longitude` DECIMAL(10,6) DEFAULT NULL COMMENT '打卡经度快照',
+  `latitude` DECIMAL(10,6) DEFAULT NULL COMMENT '打卡纬度快照',
   `faceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '人脸相似度',
   `status` VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT '打卡状态',
   `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -169,6 +173,18 @@ CREATE TABLE `warningRecord` (
   KEY `idxWarningRecordExceptionId` (`exceptionId`),
   CONSTRAINT `fkWarningRecordException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警记录表';
+
+CREATE TABLE `riskLevel` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '风险等级ID',
+  `code` VARCHAR(20) NOT NULL COMMENT '风险等级编码',
+  `name` VARCHAR(100) NOT NULL COMMENT '风险等级名称',
+  `description` VARCHAR(255) DEFAULT NULL COMMENT '风险等级说明',
+  `status` INT NOT NULL DEFAULT 1 COMMENT '状态：1启用，0停用',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updateTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  UNIQUE KEY `ukRiskLevelCode` (`code`),
+  KEY `idxRiskLevelStatus` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='风险等级表';
 
 CREATE TABLE `reviewRecord` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '复核记录ID',
@@ -245,17 +261,23 @@ INSERT INTO `role` (`code`, `name`, `description`, `status`) VALUES
 ('ADMIN', '管理员', '系统管理员角色', 1),
 ('EMPLOYEE', '员工', '普通员工角色', 1);
 
-INSERT INTO `device` (`id`, `name`, `location`, `status`, `description`) VALUES
-('DEV-001', '前台考勤机1', '办公区A', 1, '默认正常设备'),
-('DEV-002', '前台考勤机2', '办公区B', 1, '默认正常设备'),
-('DEV-009', '临时设备', '外部区域', 1, '用于异常场景测试');
+INSERT INTO `device` (`id`, `name`, `location`, `longitude`, `latitude`, `status`, `description`) VALUES
+('DEV-001', '前台考勤机1', '办公区A', 116.397128, 39.916527, 1, '默认正常设备'),
+('DEV-002', '前台考勤机2', '办公区B', 116.407396, 39.904200, 1, '默认正常设备'),
+('DEV-009', '临时设备', '外部区域', 121.473701, 31.230416, 1, '用于异常场景测试');
 
 INSERT INTO `rule` (`name`, `startTime`, `endTime`, `lateThreshold`, `earlyThreshold`, `repeatLimit`, `status`) VALUES
 ('默认考勤规则', '09:00:00', '18:00:00', 10, 10, 3, 1);
+
+INSERT INTO `riskLevel` (`code`, `name`, `description`, `status`) VALUES
+('HIGH', '高风险', '需要优先人工复核', 1),
+('MEDIUM', '中风险', '建议尽快关注并结合历史记录判断', 1),
+('LOW', '低风险', '记录留档并持续观察', 1);
 
 INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`) VALUES
 ('PROXY_CHECKIN', '疑似代打卡', '疑似由他人代为完成考勤打卡', 1),
 ('LATE', '迟到', '超过上班时间阈值的异常打卡', 1),
 ('EARLY_LEAVE', '早退', '早于下班时间阈值的异常打卡', 1),
 ('REPEAT_CHECK', '重复打卡', '短时间内重复提交同类打卡', 1),
-('ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1);
+('ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1),
+('MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1);

@@ -97,6 +97,8 @@ public class AttendanceController {
         option.setDeviceId(device.getId());
         option.setName(device.getName());
         option.setLocation(device.getLocation());
+        option.setLongitude(device.getLongitude());
+        option.setLatitude(device.getLatitude());
         return option;
     }
 }

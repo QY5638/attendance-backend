@@ -1,6 +1,9 @@
 target/
 .idea/
 .worktrees/
+application-local.yml
+.env.local
+.env.*.local
 *.log
 *.tmp
 .DS_Store

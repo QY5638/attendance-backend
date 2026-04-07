@@ -40,6 +40,7 @@ public class WarningServiceImpl implements WarningService {
     private static final String TYPE_RISK_WARNING = "RISK_WARNING";
     private static final String TYPE_ATTENDANCE_WARNING = "ATTENDANCE_WARNING";
     private static final String STATUS_UNPROCESSED = "UNPROCESSED";
+    private static final String STATUS_PROCESSED = "PROCESSED";
     private static final String SOURCE_RULE = "RULE";
     private static final String SOURCE_MODEL = "MODEL";
     private static final String SOURCE_MODEL_FALLBACK = "MODEL_FALLBACK";
@@ -117,6 +118,47 @@ public class WarningServiceImpl implements WarningService {
     }
 
     @Override
+    @Transactional
+    public void syncWarningByExceptionId(Long exceptionId) {
+        AttendanceException attendanceException = requireExistingException(exceptionId);
+        if (!shouldCreateWarning(attendanceException)) {
+            return;
+        }
+
+        ExceptionAnalysis analysis = findLatestAnalysis(exceptionId);
+        WarningRecord warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
+        if (warningRecord == null) {
+            WarningRecord newWarningRecord = new WarningRecord();
+            newWarningRecord.setExceptionId(exceptionId);
+            applySnapshot(newWarningRecord, attendanceException, analysis, STATUS_UNPROCESSED);
+            newWarningRecord.setSendTime(LocalDateTime.now());
+            try {
+                warningRecordMapper.insert(newWarningRecord);
+                return;
+            } catch (DuplicateKeyException exception) {
+                warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
+                if (warningRecord == null) {
+                    return;
+                }
+            }
+        }
+
+        applySnapshot(warningRecord, attendanceException, analysis, resolveWarningStatus(warningRecord));
+        warningRecordMapper.updateById(warningRecord);
+    }
+
+    @Override
+    @Transactional
+    public void markProcessedByExceptionId(Long exceptionId) {
+        WarningRecord warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
+        if (warningRecord == null || STATUS_PROCESSED.equals(warningRecord.getStatus())) {
+            return;
+        }
+        warningRecord.setStatus(STATUS_PROCESSED);
+        warningRecordMapper.updateById(warningRecord);
+    }
+
+    @Override
     public PageResult<RiskLevelConfigVO> listRiskLevels(RiskLevelQueryDTO queryDTO) {
         return riskLevelRegistry.list(warningValidationSupport.validateRiskLevelQuery(queryDTO));
     }
@@ -133,19 +175,19 @@ public class WarningServiceImpl implements WarningService {
                 .orderByDesc(AttendanceException::getCreateTime)
                 .orderByDesc(AttendanceException::getId));
         for (AttendanceException attendanceException : candidates) {
-            if (warningRecordMapper.selectByExceptionId(attendanceException.getId()) != null) {
-                continue;
-            }
-            WarningRecord warningRecord = new WarningRecord();
-            applySnapshot(warningRecord, attendanceException, findLatestAnalysis(attendanceException.getId()), STATUS_UNPROCESSED);
-            warningRecord.setExceptionId(attendanceException.getId());
-            warningRecord.setSendTime(LocalDateTime.now());
-            try {
-                warningRecordMapper.insert(warningRecord);
-            } catch (DuplicateKeyException exception) {
-                // 并发下以唯一键兜底，已有记录即可。
-            }
+            syncWarningByExceptionId(attendanceException.getId());
         }
+    }
+
+    private boolean shouldCreateWarning(AttendanceException attendanceException) {
+        return "HIGH".equals(attendanceException.getRiskLevel()) || "MEDIUM".equals(attendanceException.getRiskLevel());
+    }
+
+    private String resolveWarningStatus(WarningRecord warningRecord) {
+        if (!StringUtils.hasText(warningRecord.getStatus())) {
+            return STATUS_UNPROCESSED;
+        }
+        return warningRecord.getStatus();
     }
 
     private void applySnapshot(WarningRecord warningRecord,
@@ -232,8 +274,10 @@ public class WarningServiceImpl implements WarningService {
 
     private WarningVO toVO(WarningRecord warningRecord) {
         WarningVO vo = new WarningVO();
+        AttendanceException attendanceException = attendanceExceptionMapper.selectById(warningRecord.getExceptionId());
         vo.setId(warningRecord.getId());
         vo.setExceptionId(warningRecord.getExceptionId());
+        vo.setExceptionType(attendanceException == null ? null : attendanceException.getType());
         vo.setType(warningRecord.getType());
         vo.setLevel(warningRecord.getLevel());
         vo.setStatus(warningRecord.getStatus());

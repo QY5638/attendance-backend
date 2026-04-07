@@ -44,6 +44,7 @@ class UserManagementIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("DELETE FROM reviewRecord");
+        jdbcTemplate.execute("DELETE FROM warningRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
         jdbcTemplate.execute("DELETE FROM exceptionAnalysis");
@@ -51,6 +52,7 @@ class UserManagementIntegrationTest {
         jdbcTemplate.execute("DELETE FROM attendanceRepair");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
         jdbcTemplate.execute("DELETE FROM device");
+        jdbcTemplate.execute("DELETE FROM faceFeature");
         jdbcTemplate.execute("DELETE FROM user");
         jdbcTemplate.execute("DELETE FROM department");
         jdbcTemplate.execute("DELETE FROM role");

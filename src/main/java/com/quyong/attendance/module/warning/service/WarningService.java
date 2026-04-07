@@ -17,6 +17,10 @@ public interface WarningService {
 
     WarningVO reEvaluate(WarningReevaluateDTO dto);
 
+    void syncWarningByExceptionId(Long exceptionId);
+
+    void markProcessedByExceptionId(Long exceptionId);
+
     PageResult<RiskLevelConfigVO> listRiskLevels(RiskLevelQueryDTO queryDTO);
 
     void updateRiskLevel(RiskLevelUpdateDTO dto);

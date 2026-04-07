@@ -1,18 +1,19 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/attendance_demo?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:change_me}
+    password: ${DB_PASSWORD:change_me}
     driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
     hikari:
       initialization-fail-timeout: 0
       connection-timeout: 3000
       validation-timeout: 1000
   redis:
-    host: localhost
-    port: 6379
-    database: 0
-    timeout: 3000ms
+    host: ${REDIS_HOST:change_me}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:change_me}
+    database: ${REDIS_DATABASE:0}
+    timeout: ${REDIS_TIMEOUT:3000ms}
 
 app:
   env: prod

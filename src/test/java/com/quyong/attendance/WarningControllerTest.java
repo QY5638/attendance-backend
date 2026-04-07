@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,9 +42,6 @@ class WarningControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private ApplicationContext applicationContext;
-
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("DELETE FROM operationLog");
@@ -64,8 +60,11 @@ class WarningControllerTest {
         jdbcTemplate.execute("DELETE FROM user");
         jdbcTemplate.execute("DELETE FROM department");
         jdbcTemplate.execute("DELETE FROM role");
+        jdbcTemplate.execute("DELETE FROM riskLevel");
 
-        resetRiskLevelRegistryIfPresent();
+        insertRiskLevel(1L, "HIGH", "高风险", "需要优先人工复核", 1, "2026-03-26 09:00:00", "2026-03-26 09:00:00");
+        insertRiskLevel(2L, "MEDIUM", "中风险", "建议尽快关注并结合历史记录判断", 1, "2026-03-26 09:01:00", "2026-03-26 09:01:00");
+        insertRiskLevel(3L, "LOW", "低风险", "记录留档并持续观察", 1, "2026-03-26 09:02:00", "2026-03-26 09:02:00");
 
         insertRole(1L, "ADMIN", "管理员");
         insertRole(2L, "EMPLOYEE", "员工");
@@ -93,6 +92,8 @@ class WarningControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.records[1].exceptionId").value(3002))
                 .andReturn();
 
         JsonNode root = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
@@ -126,6 +127,22 @@ class WarningControllerTest {
     }
 
     @Test
+    void shouldExposeMultiLocationConflictTypeInWarningList() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3004L, 2002L, 1001L, "MULTI_LOCATION_CONFLICT", "HIGH", "RULE", "检测到短时间内跨地点打卡", "PENDING");
+        insertWarningRecord(5004L, 3004L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("95.00"), "检测到短时间内跨地点打卡（高风险）", "建议优先人工复核", "RULE", "2026-03-26 09:20:00");
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].id").value(5004))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("MULTI_LOCATION_CONFLICT"));
+    }
+
+    @Test
     void shouldReturnWarningAdvice() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
@@ -141,6 +158,23 @@ class WarningControllerTest {
                 .andExpect(jsonPath("$.data.aiSummary").value("高风险摘要"))
                 .andExpect(jsonPath("$.data.disposeSuggestion").value("立即处理"))
                 .andExpect(jsonPath("$.data.decisionSource").value("MODEL_FUSION"));
+    }
+
+    @Test
+    void shouldExposeExceptionIdInWarningListForReviewEntry() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3005L, 2002L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "用于复核入口校验的异常", "PENDING");
+        insertWarningRecord(5005L, 3005L, "RISK_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("98.00"), "需要人工复核", "建议直接进入复核页", "MODEL_FUSION", "2026-03-26 09:30:00");
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(5005))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3005));
     }
 
     @Test
@@ -215,6 +249,25 @@ class WarningControllerTest {
     }
 
     @Test
+    void shouldReadPersistedRiskLevelConfigFromDatabase() throws Exception {
+        jdbcTemplate.execute("DELETE FROM riskLevel");
+        insertRiskLevel(11L, "HIGH", "重点高风险", "数据库中的高风险名称", 1, "2026-03-26 10:00:00", "2026-03-26 10:00:00");
+        insertRiskLevel(12L, "MEDIUM", "重点中风险", "数据库中的中风险名称", 1, "2026-03-26 10:01:00", "2026-03-26 10:01:00");
+        insertRiskLevel(13L, "LOW", "重点低风险", "数据库中的低风险名称", 1, "2026-03-26 10:02:00", "2026-03-26 10:02:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/system/risk-level/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.records[0].code").value("HIGH"))
+                .andExpect(jsonPath("$.data.records[0].name").value("重点高风险"));
+    }
+
+    @Test
     void shouldReturnForbiddenWhenEmployeeAccessesWarningApi() throws Exception {
         String employeeToken = loginAndExtractToken("zhangsan", "123456");
 
@@ -233,18 +286,6 @@ class WarningControllerTest {
                         .param("pageSize", "10"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
-    }
-
-    private void resetRiskLevelRegistryIfPresent() {
-        if (!applicationContext.containsBean("riskLevelRegistry")) {
-            return;
-        }
-        Object bean = applicationContext.getBean("riskLevelRegistry");
-        try {
-            bean.getClass().getMethod("resetDefaults").invoke(bean);
-        } catch (ReflectiveOperationException exception) {
-            throw new IllegalStateException("风险等级配置重置失败", exception);
-        }
     }
 
     private void insertRole(Long id, String code, String name) {
@@ -312,6 +353,25 @@ class WarningControllerTest {
                 location,
                 faceScore,
                 status
+        );
+    }
+
+    private void insertRiskLevel(Long id,
+                                 String code,
+                                 String name,
+                                 String description,
+                                 Integer status,
+                                 String createTime,
+                                 String updateTime) {
+        jdbcTemplate.update(
+                "INSERT INTO riskLevel (id, code, name, description, status, createTime, updateTime) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                id,
+                code,
+                name,
+                description,
+                status,
+                createTime,
+                updateTime
         );
     }
 

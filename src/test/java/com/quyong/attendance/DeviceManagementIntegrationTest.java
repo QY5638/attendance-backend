@@ -14,6 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -69,6 +71,12 @@ class DeviceManagementIntegrationTest {
     @Test
     void shouldReturnDeviceListOrderedByDeviceId() throws Exception {
         String token = loginAndExtractToken("admin", "123456");
+        jdbcTemplate.update(
+                "UPDATE device SET longitude = ?, latitude = ? WHERE id = ?",
+                new BigDecimal("116.397128"),
+                new BigDecimal("39.916527"),
+                "DEV-001"
+        );
 
         mockMvc.perform(get("/api/device/list")
                         .header("Authorization", "Bearer " + token))
@@ -77,6 +85,8 @@ class DeviceManagementIntegrationTest {
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.length()").value(3))
                 .andExpect(jsonPath("$.data[0].deviceId").value("DEV-001"))
+                .andExpect(jsonPath("$.data[0].longitude").value(116.397128))
+                .andExpect(jsonPath("$.data[0].latitude").value(39.916527))
                 .andExpect(jsonPath("$.data[1].deviceId").value("DEV-002"))
                 .andExpect(jsonPath("$.data[2].deviceId").value("DEV-009"))
                 .andExpect(jsonPath("$.data[0].id").doesNotExist());
@@ -104,13 +114,15 @@ class DeviceManagementIntegrationTest {
         mockMvc.perform(post("/api/device/add")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"deviceId\":\"  DEV-010  \",\"name\":\"  后门考勤机  \",\"location\":\"  办公区C  \",\"description\":\"  新增设备  \"}"))
+                        .content("{\"deviceId\":\"  DEV-010  \",\"name\":\"  后门考勤机  \",\"location\":\"  办公区C  \",\"longitude\":116.397128,\"latitude\":39.916527,\"description\":\"  新增设备  \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.deviceId").value("DEV-010"))
                 .andExpect(jsonPath("$.data.name").value("后门考勤机"))
                 .andExpect(jsonPath("$.data.location").value("办公区C"))
+                .andExpect(jsonPath("$.data.longitude").value(116.397128))
+                .andExpect(jsonPath("$.data.latitude").value(39.916527))
                 .andExpect(jsonPath("$.data.status").value(1))
                 .andExpect(jsonPath("$.data.description").value("新增设备"))
                 .andExpect(jsonPath("$.data.id").doesNotExist());
@@ -130,10 +142,22 @@ class DeviceManagementIntegrationTest {
                 Integer.class,
                 "DEV-010"
         );
+        BigDecimal longitude = jdbcTemplate.queryForObject(
+                "SELECT longitude FROM device WHERE id = ?",
+                BigDecimal.class,
+                "DEV-010"
+        );
+        BigDecimal latitude = jdbcTemplate.queryForObject(
+                "SELECT latitude FROM device WHERE id = ?",
+                BigDecimal.class,
+                "DEV-010"
+        );
 
         assertEquals(1, count);
         assertEquals("后门考勤机", name);
         assertEquals(1, statusValue);
+        assertEquals(new BigDecimal("116.397128"), longitude);
+        assertEquals(new BigDecimal("39.916527"), latitude);
     }
 
     @Test
@@ -208,13 +232,15 @@ class DeviceManagementIntegrationTest {
         mockMvc.perform(put("/api/device/update")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"deviceId\":\"DEV-002\",\"name\":\"  二号考勤机  \",\"location\":\"  办公区B-北侧  \",\"status\":0,\"description\":\"  调整位置  \"}"))
+                        .content("{\"deviceId\":\"DEV-002\",\"name\":\"  二号考勤机  \",\"location\":\"  办公区B-北侧  \",\"longitude\":121.473701,\"latitude\":31.230416,\"status\":0,\"description\":\"  调整位置  \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.deviceId").value("DEV-002"))
                 .andExpect(jsonPath("$.data.name").value("二号考勤机"))
                 .andExpect(jsonPath("$.data.location").value("办公区B-北侧"))
+                .andExpect(jsonPath("$.data.longitude").value(121.473701))
+                .andExpect(jsonPath("$.data.latitude").value(31.230416))
                 .andExpect(jsonPath("$.data.status").value(0))
                 .andExpect(jsonPath("$.data.description").value("调整位置"));
 
@@ -233,10 +259,22 @@ class DeviceManagementIntegrationTest {
                 Integer.class,
                 "DEV-002"
         );
+        BigDecimal longitude = jdbcTemplate.queryForObject(
+                "SELECT longitude FROM device WHERE id = ?",
+                BigDecimal.class,
+                "DEV-002"
+        );
+        BigDecimal latitude = jdbcTemplate.queryForObject(
+                "SELECT latitude FROM device WHERE id = ?",
+                BigDecimal.class,
+                "DEV-002"
+        );
 
         assertEquals("二号考勤机", name);
         assertEquals("办公区B-北侧", location);
         assertEquals(0, statusValue);
+        assertEquals(new BigDecimal("121.473701"), longitude);
+        assertEquals(new BigDecimal("31.230416"), latitude);
     }
 
     @Test
