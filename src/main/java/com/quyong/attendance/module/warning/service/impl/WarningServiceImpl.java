@@ -37,9 +37,11 @@ import java.util.List;
 @Service
 public class WarningServiceImpl implements WarningService {
 
+    private static final String EXCEPTION_STATUS_REVIEWED = "REVIEWED";
     private static final String TYPE_RISK_WARNING = "RISK_WARNING";
     private static final String TYPE_ATTENDANCE_WARNING = "ATTENDANCE_WARNING";
     private static final String STATUS_UNPROCESSED = "UNPROCESSED";
+    private static final String STATUS_PROCESSED = "PROCESSED";
     private static final String SOURCE_RULE = "RULE";
     private static final String SOURCE_MODEL = "MODEL";
     private static final String SOURCE_MODEL_FALLBACK = "MODEL_FALLBACK";
@@ -109,7 +111,7 @@ public class WarningServiceImpl implements WarningService {
         WarningRecord warningRecord = requireExistingWarning(validatedDTO.getWarningId());
         AttendanceException attendanceException = requireExistingException(warningRecord.getExceptionId());
         ExceptionAnalysis analysis = findLatestAnalysis(attendanceException.getId());
-        applySnapshot(warningRecord, attendanceException, analysis, warningRecord.getStatus());
+        applySnapshot(warningRecord, attendanceException, analysis, resolveWarningStatus(warningRecord, attendanceException));
         warningRecord.setSendTime(LocalDateTime.now());
         warningRecordMapper.updateById(warningRecord);
         operationLogService.save(authUser.getUserId(), "WARNING", authUser.getRealName() + "重新评估预警" + warningRecord.getId());
@@ -126,10 +128,11 @@ public class WarningServiceImpl implements WarningService {
 
         ExceptionAnalysis analysis = findLatestAnalysis(exceptionId);
         WarningRecord warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
+        String nextStatus = resolveWarningStatus(warningRecord, attendanceException);
         if (warningRecord == null) {
             WarningRecord newWarningRecord = new WarningRecord();
             newWarningRecord.setExceptionId(exceptionId);
-            applySnapshot(newWarningRecord, attendanceException, analysis, STATUS_UNPROCESSED);
+            applySnapshot(newWarningRecord, attendanceException, analysis, nextStatus);
             newWarningRecord.setSendTime(LocalDateTime.now());
             try {
                 warningRecordMapper.insert(newWarningRecord);
@@ -142,7 +145,18 @@ public class WarningServiceImpl implements WarningService {
             }
         }
 
-        applySnapshot(warningRecord, attendanceException, analysis, resolveWarningStatus(warningRecord));
+        applySnapshot(warningRecord, attendanceException, analysis, nextStatus);
+        warningRecordMapper.updateById(warningRecord);
+    }
+
+    @Override
+    @Transactional
+    public void markProcessedByExceptionId(Long exceptionId) {
+        WarningRecord warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
+        if (warningRecord == null || STATUS_PROCESSED.equals(warningRecord.getStatus())) {
+            return;
+        }
+        warningRecord.setStatus(STATUS_PROCESSED);
         warningRecordMapper.updateById(warningRecord);
     }
 
@@ -171,8 +185,11 @@ public class WarningServiceImpl implements WarningService {
         return "HIGH".equals(attendanceException.getRiskLevel()) || "MEDIUM".equals(attendanceException.getRiskLevel());
     }
 
-    private String resolveWarningStatus(WarningRecord warningRecord) {
-        if (!StringUtils.hasText(warningRecord.getStatus())) {
+    private String resolveWarningStatus(WarningRecord warningRecord, AttendanceException attendanceException) {
+        if (EXCEPTION_STATUS_REVIEWED.equals(attendanceException.getProcessStatus())) {
+            return STATUS_PROCESSED;
+        }
+        if (warningRecord == null || !StringUtils.hasText(warningRecord.getStatus())) {
             return STATUS_UNPROCESSED;
         }
         return warningRecord.getStatus();

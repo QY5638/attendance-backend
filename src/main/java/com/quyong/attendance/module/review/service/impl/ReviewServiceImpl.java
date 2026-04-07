@@ -19,6 +19,7 @@ import com.quyong.attendance.module.review.support.ReviewValidationSupport;
 import com.quyong.attendance.module.review.vo.ReviewAssistantVO;
 import com.quyong.attendance.module.review.vo.ReviewRecordVO;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
+import com.quyong.attendance.module.warning.service.WarningService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -38,19 +39,22 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRecordMapper reviewRecordMapper;
     private final ReviewValidationSupport reviewValidationSupport;
     private final OperationLogService operationLogService;
+    private final WarningService warningService;
 
     public ReviewServiceImpl(AttendanceExceptionMapper attendanceExceptionMapper,
                              ExceptionAnalysisMapper exceptionAnalysisMapper,
                              DecisionTraceService decisionTraceService,
                              ReviewRecordMapper reviewRecordMapper,
                              ReviewValidationSupport reviewValidationSupport,
-                             OperationLogService operationLogService) {
+                             OperationLogService operationLogService,
+                             WarningService warningService) {
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.decisionTraceService = decisionTraceService;
         this.reviewRecordMapper = reviewRecordMapper;
         this.reviewValidationSupport = reviewValidationSupport;
         this.operationLogService = operationLogService;
+        this.warningService = warningService;
     }
 
     @Override
@@ -116,6 +120,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         attendanceException.setProcessStatus("REVIEWED");
         attendanceExceptionMapper.updateById(attendanceException);
+        warningService.markProcessedByExceptionId(validatedDTO.getExceptionId());
         operationLogService.save(reviewUserId, "REVIEW", currentAuthUser().getRealName() + "复核异常记录" + validatedDTO.getExceptionId());
         return toVO(reviewRecord);
     }
