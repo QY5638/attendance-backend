@@ -281,8 +281,11 @@ class StatisticsControllerTest {
                         .param("endDate", "2026-03-26")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", containsString("text/csv")))
-                .andExpect(header().string("Content-Disposition", containsString("attachment;")))
+                .andExpect(header().string("Content-Type", allOf(
+                        containsString("text/csv"),
+                        containsString("charset=UTF-8")
+                )))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=statistics-export.csv"))
                 .andExpect(content().string(allOf(
                         containsString("deptId,deptName,recordCount,exceptionCount,analysisCount,warningCount,reviewCount,closedLoopCount"),
                         containsString(",全部部门,7,4,4,4,2,2"),

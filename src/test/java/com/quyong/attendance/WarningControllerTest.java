@@ -17,6 +17,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -98,9 +101,32 @@ class WarningControllerTest {
         JsonNode root = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
         assertEquals(2, root.path("data").path("total").asInt());
         assertEquals(2, root.path("data").path("records").size());
+        Set<Long> exceptionIds = new HashSet<Long>();
+        for (JsonNode record : root.path("data").path("records")) {
+            exceptionIds.add(record.path("exceptionId").asLong());
+        }
+        assertEquals(new HashSet<Long>(Arrays.asList(3001L, 3002L)), exceptionIds);
 
         Integer warningCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM warningRecord", Integer.class);
         assertEquals(Integer.valueOf(2), warningCount);
+    }
+
+    @Test
+    void shouldExposeExceptionIdInWarningListAsReviewEntry() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
+        insertWarningRecord(5001L, 3001L, "RISK_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("96.00"), "高风险摘要", "立即处理", "MODEL_FUSION", "2026-03-26 08:59:20");
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(5001))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("PROXY_CHECKIN"));
     }
 
     @Test
