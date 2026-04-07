@@ -1,10 +1,14 @@
 package com.quyong.attendance.module.device.vo;
 
+import java.math.BigDecimal;
+
 public class DeviceVO {
 
     private String deviceId;
     private String name;
     private String location;
+    private BigDecimal longitude;
+    private BigDecimal latitude;
     private Integer status;
     private String description;
 
@@ -30,6 +34,22 @@ public class DeviceVO {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
+    }
+
+    public BigDecimal getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
     }
 
     public Integer getStatus() {

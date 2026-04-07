@@ -31,6 +31,10 @@ public class AttendanceRecord {
 
     private String location;
 
+    private BigDecimal longitude;
+
+    private BigDecimal latitude;
+
     @TableField("faceScore")
     private BigDecimal faceScore;
 
@@ -93,6 +97,22 @@ public class AttendanceRecord {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
+    }
+
+    public BigDecimal getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
     }
 
     public BigDecimal getFaceScore() {

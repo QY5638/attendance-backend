@@ -126,6 +126,22 @@ class WarningControllerTest {
     }
 
     @Test
+    void shouldExposeMultiLocationConflictTypeInWarningList() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3004L, 2002L, 1001L, "MULTI_LOCATION_CONFLICT", "HIGH", "RULE", "检测到短时间内跨地点打卡", "PENDING");
+        insertWarningRecord(5004L, 3004L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("95.00"), "检测到短时间内跨地点打卡（高风险）", "建议优先人工复核", "RULE", "2026-03-26 09:20:00");
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].id").value(5004))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("MULTI_LOCATION_CONFLICT"));
+    }
+
+    @Test
     void shouldReturnWarningAdvice() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");

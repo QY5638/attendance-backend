@@ -16,6 +16,8 @@ CREATE TABLE device (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     location VARCHAR(255),
+    longitude DECIMAL(10,6),
+    latitude DECIMAL(10,6),
     status TINYINT NOT NULL DEFAULT 1,
     description VARCHAR(255)
 );
@@ -56,6 +58,8 @@ CREATE TABLE attendanceRecord (
     deviceId VARCHAR(64) NOT NULL,
     ipAddr VARCHAR(64),
     location VARCHAR(255),
+    longitude DECIMAL(10,6),
+    latitude DECIMAL(10,6),
     faceScore DECIMAL(5,2),
     status VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
     createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -157,6 +161,16 @@ CREATE TABLE exceptionType (
     updateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE riskLevel (
+    id BIGINT PRIMARY KEY,
+    code VARCHAR(20) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    status INT NOT NULL DEFAULT 1,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE modelCallLog (
     id BIGINT PRIMARY KEY,
     businessType VARCHAR(50) NOT NULL,
@@ -210,6 +224,7 @@ CREATE UNIQUE INDEX uk_user_username ON user (username);
 CREATE INDEX idx_attendance_repair_user_time ON attendanceRepair (userId, checkTime);
 CREATE UNIQUE INDEX uk_attendance_repair_pending ON attendanceRepair (userId, checkType, checkTime, status);
 CREATE UNIQUE INDEX uk_exception_type_code ON exceptionType (code);
+CREATE UNIQUE INDEX uk_risk_level_code ON riskLevel (code);
 CREATE INDEX idx_review_record_exception_id ON reviewRecord (exceptionId);
 CREATE UNIQUE INDEX uk_warning_record_exception ON warningRecord (exceptionId);
 CREATE INDEX idxOperationLogUserTime ON operationLog (userId, operationTime);

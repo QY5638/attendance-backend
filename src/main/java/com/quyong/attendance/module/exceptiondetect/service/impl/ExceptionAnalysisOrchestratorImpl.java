@@ -17,6 +17,8 @@ import com.quyong.attendance.module.exceptiondetect.service.ExceptionAnalysisOrc
 import com.quyong.attendance.module.exceptiondetect.service.RuleService;
 import com.quyong.attendance.module.exceptiondetect.support.ExceptionValidationSupport;
 import com.quyong.attendance.module.exceptiondetect.vo.ExceptionDecisionVO;
+import com.quyong.attendance.module.map.config.MapProperties;
+import com.quyong.attendance.module.map.service.MapDistanceService;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeRequest;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeResponse;
 import com.quyong.attendance.module.model.gateway.service.ModelGateway;
@@ -27,6 +29,8 @@ import com.quyong.attendance.module.model.trace.service.DecisionTraceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalTime;
 
 @Service
@@ -36,6 +40,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private static final String RULE_SOURCE = "RULE";
     private static final String PENDING_STATUS = "PENDING";
     private static final String ABNORMAL_STATUS = "ABNORMAL";
+    private static final String MULTI_LOCATION_CONFLICT = "MULTI_LOCATION_CONFLICT";
+    private static final String HISTORICAL_MULTI_LOCATION_TRACE_NOTE = "历史版本未持久化完整空间证据，当前为避免基于变更后的记录/阈值重建失真证据，不做明细回填";
 
     private final RuleService ruleService;
     private final AttendanceRecordMapper attendanceRecordMapper;
@@ -46,6 +52,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private final ModelCallLogService modelCallLogService;
     private final DecisionTraceService decisionTraceService;
     private final ExceptionValidationSupport exceptionValidationSupport;
+    private final MapDistanceService mapDistanceService;
+    private final MapProperties mapProperties;
     private final Object[] recordLocks;
 
     public ExceptionAnalysisOrchestratorImpl(RuleService ruleService,
@@ -56,7 +64,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                                              ModelGateway modelGateway,
                                              ModelCallLogService modelCallLogService,
                                              DecisionTraceService decisionTraceService,
-                                             ExceptionValidationSupport exceptionValidationSupport) {
+                                             ExceptionValidationSupport exceptionValidationSupport,
+                                             MapDistanceService mapDistanceService,
+                                             MapProperties mapProperties) {
         this.ruleService = ruleService;
         this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceExceptionMapper = attendanceExceptionMapper;
@@ -66,6 +76,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         this.modelCallLogService = modelCallLogService;
         this.decisionTraceService = decisionTraceService;
         this.exceptionValidationSupport = exceptionValidationSupport;
+        this.mapDistanceService = mapDistanceService;
+        this.mapProperties = mapProperties;
         this.recordLocks = initRecordLocks();
     }
 
@@ -97,7 +109,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             attendanceException.setType(type);
             attendanceException.setRiskLevel(resolveRuleRiskLevel(type));
             attendanceException.setSourceType(RULE_SOURCE);
-            attendanceException.setDescription(resolveRuleDescription(type));
+            String description = resolveRuleDescription(type);
+            String ruleDecisionEvidence = resolveRuleDecisionEvidence(record, type, description);
+            attendanceException.setDescription(description);
             attendanceException.setProcessStatus(PENDING_STATUS);
             attendanceExceptionMapper.insert(attendanceException);
 
@@ -107,11 +121,11 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             decisionTraceService.save(
                     ATTENDANCE_EXCEPTION_BUSINESS_TYPE,
                     attendanceException.getId(),
-                    attendanceException.getDescription(),
+                    ruleDecisionEvidence,
                     null,
                     attendanceException.getType(),
                     null,
-                    attendanceException.getDescription()
+                    ruleDecisionEvidence
             );
             return toDecisionVO(attendanceException);
         }
@@ -141,7 +155,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
 
             PromptTemplate promptTemplate = promptTemplateMapper.selectEnabledBySceneType("EXCEPTION_ANALYSIS");
             if (promptTemplate == null) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "未找到启用中的异常分析模板");
+                return null;
             }
 
             String inputSummary = buildInputSummary(record, validatedDTO.getRiskFeatures());
@@ -281,6 +295,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         if (isIllegalTime(record)) {
             return "ILLEGAL_TIME";
         }
+        if (isMultiLocationConflict(record)) {
+            return MULTI_LOCATION_CONFLICT;
+        }
         if (isLate(record, rule)) {
             return "LATE";
         }
@@ -325,7 +342,47 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return count != null && count.longValue() > 0L;
     }
 
+    private boolean isMultiLocationConflict(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+        if (record.getLongitude() == null || record.getLatitude() == null) {
+            return false;
+        }
+        if (mapProperties.getMultiLocationWindowMinutes() == null || mapProperties.getMultiLocationWindowMinutes().intValue() <= 0) {
+            return false;
+        }
+        if (mapProperties.getMultiLocationDistanceMeters() == null
+                || mapProperties.getMultiLocationDistanceMeters().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        AttendanceRecord previousRecord = attendanceRecordMapper.selectLatestBefore(record.getUserId(), record.getCheckTime(), record.getId());
+        if (previousRecord == null || previousRecord.getCheckTime() == null) {
+            return false;
+        }
+        if (previousRecord.getLongitude() == null || previousRecord.getLatitude() == null) {
+            return false;
+        }
+
+        long intervalMinutes = Duration.between(previousRecord.getCheckTime(), record.getCheckTime()).toMinutes();
+        if (intervalMinutes < 0 || intervalMinutes > mapProperties.getMultiLocationWindowMinutes().intValue()) {
+            return false;
+        }
+
+        BigDecimal distanceMeters = mapDistanceService.calculateDistanceMeters(
+                previousRecord.getLongitude(),
+                previousRecord.getLatitude(),
+                record.getLongitude(),
+                record.getLatitude()
+        );
+        return distanceMeters.compareTo(mapProperties.getMultiLocationDistanceMeters()) >= 0;
+    }
+
     private String resolveRuleRiskLevel(String type) {
+        if (MULTI_LOCATION_CONFLICT.equals(type)) {
+            return "HIGH";
+        }
         if ("ILLEGAL_TIME".equals(type)) {
             return "HIGH";
         }
@@ -336,6 +393,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     }
 
     private String resolveRuleDescription(String type) {
+        if (MULTI_LOCATION_CONFLICT.equals(type)) {
+            return "短时间内在多个地点完成打卡，判定为空间冲突";
+        }
         if ("LATE".equals(type)) {
             return "超过上班时间阈值，判定为迟到";
         }
@@ -348,18 +408,144 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return "短时间内重复打卡";
     }
 
+    private String resolveRuleDecisionEvidence(AttendanceRecord record, String type, String description) {
+        if (!MULTI_LOCATION_CONFLICT.equals(type)) {
+            return description;
+        }
+        String evidence = buildMultiLocationConflictEvidence(record);
+        if (evidence != null) {
+            return evidence;
+        }
+        return description;
+    }
+
+    private String buildMultiLocationConflictEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null || record.getId() == null) {
+            return null;
+        }
+        if (record.getLongitude() == null || record.getLatitude() == null) {
+            return null;
+        }
+        if (mapProperties.getMultiLocationWindowMinutes() == null || mapProperties.getMultiLocationDistanceMeters() == null) {
+            return null;
+        }
+
+        AttendanceRecord previousRecord = attendanceRecordMapper.selectLatestBefore(record.getUserId(), record.getCheckTime(), record.getId());
+        if (previousRecord == null || previousRecord.getCheckTime() == null) {
+            return null;
+        }
+        if (previousRecord.getLongitude() == null || previousRecord.getLatitude() == null) {
+            return null;
+        }
+
+        long intervalMinutes = Duration.between(previousRecord.getCheckTime(), record.getCheckTime()).toMinutes();
+        BigDecimal distanceMeters = mapDistanceService.calculateDistanceMeters(
+                previousRecord.getLongitude(),
+                previousRecord.getLatitude(),
+                record.getLongitude(),
+                record.getLatitude()
+        );
+        return "短时间内在多个地点完成打卡，判定为空间冲突；前一条地点=" + resolveLocationLabel(previousRecord)
+                + "，当前地点=" + resolveLocationLabel(record)
+                + "，间隔分钟=" + intervalMinutes
+                + "，实际距离米=" + formatDecimal(distanceMeters)
+                + "，阈值距离米=" + formatDecimal(mapProperties.getMultiLocationDistanceMeters())
+                + "，窗口分钟=" + mapProperties.getMultiLocationWindowMinutes();
+    }
+
+    private String resolveLocationLabel(AttendanceRecord record) {
+        if (record.getLocation() != null && !record.getLocation().trim().isEmpty()) {
+            return record.getLocation();
+        }
+        return "经度=" + formatDecimal(record.getLongitude()) + ",纬度=" + formatDecimal(record.getLatitude());
+    }
+
+    private String formatDecimal(BigDecimal value) {
+        if (value == null) {
+            return "null";
+        }
+        return value.stripTrailingZeros().toPlainString();
+    }
+
     private void ensureRuleDecisionTrace(AttendanceException attendanceException) {
-        if (!decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId()).isEmpty()) {
+        java.util.List<?> decisionTraces = decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId());
+        String ruleDecisionEvidence = resolveHistoricalRuleDecisionEvidence(attendanceException, decisionTraces);
+        if (ruleDecisionEvidence == null) {
             return;
         }
+        saveRuleDecisionTrace(attendanceException, ruleDecisionEvidence);
+    }
+
+    private String resolveHistoricalRuleDecisionEvidence(AttendanceException attendanceException,
+                                                         java.util.List<?> decisionTraces) {
+        if (!MULTI_LOCATION_CONFLICT.equals(attendanceException.getType())) {
+            if (!decisionTraces.isEmpty()) {
+                return null;
+            }
+            return attendanceException.getDescription();
+        }
+        String historicalExplanation = buildHistoricalMultiLocationTraceExplanation(attendanceException.getDescription());
+        if (hasCompleteMultiLocationEvidence(decisionTraces) || hasDecisionTraceValue(decisionTraces, historicalExplanation)) {
+            return null;
+        }
+        return historicalExplanation;
+    }
+
+    private String buildHistoricalMultiLocationTraceExplanation(String description) {
+        return description + "；" + HISTORICAL_MULTI_LOCATION_TRACE_NOTE;
+    }
+
+    private boolean hasCompleteMultiLocationEvidence(java.util.List<?> decisionTraces) {
+        for (Object decisionTrace : decisionTraces) {
+            if (isCompleteMultiLocationEvidence(readDecisionTraceValue(decisionTrace, "getRuleResult"))
+                    || isCompleteMultiLocationEvidence(readDecisionTraceValue(decisionTrace, "getDecisionReason"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isCompleteMultiLocationEvidence(String traceValue) {
+        return traceValue != null
+                && traceValue.contains("前一条地点=")
+                && traceValue.contains("当前地点=")
+                && traceValue.contains("间隔分钟=")
+                && traceValue.contains("实际距离米=")
+                && traceValue.contains("阈值距离米=")
+                && traceValue.contains("窗口分钟=");
+    }
+
+    private boolean hasDecisionTraceValue(java.util.List<?> decisionTraces, String expectedValue) {
+        for (Object decisionTrace : decisionTraces) {
+            if (expectedValue.equals(readDecisionTraceValue(decisionTrace, "getRuleResult"))
+                    || expectedValue.equals(readDecisionTraceValue(decisionTrace, "getDecisionReason"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String readDecisionTraceValue(Object decisionTrace, String getterName) {
+        if (decisionTrace == null) {
+            return null;
+        }
+        try {
+            Object value = decisionTrace.getClass().getMethod(getterName).invoke(decisionTrace);
+            return value == null ? null : value.toString();
+        } catch (ReflectiveOperationException exception) {
+            return null;
+        }
+    }
+
+    private void saveRuleDecisionTrace(AttendanceException attendanceException, String ruleDecisionEvidence) {
         decisionTraceService.save(
                 ATTENDANCE_EXCEPTION_BUSINESS_TYPE,
                 attendanceException.getId(),
-                attendanceException.getDescription(),
+                ruleDecisionEvidence,
                 null,
                 attendanceException.getType(),
                 null,
-            attendanceException.getDescription()
+                ruleDecisionEvidence
         );
     }
 
@@ -372,6 +558,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 + ", checkTime=" + record.getCheckTime()
                 + ", deviceId=" + record.getDeviceId()
                 + ", location=" + record.getLocation()
+                + ", longitude=" + record.getLongitude()
+                + ", latitude=" + record.getLatitude()
                 + ", faceScore=" + record.getFaceScore()
                 + ", clientFaceScore=" + (riskFeatures == null ? null : riskFeatures.getFaceScore())
                 + ", clientDeviceChanged=" + (riskFeatures == null ? null : riskFeatures.getDeviceChanged())
@@ -394,6 +582,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private String buildRuleFeatureSummary(AttendanceRecord record, RiskFeaturesDTO riskFeatures) {
         return "deviceId=" + record.getDeviceId()
                 + ", location=" + record.getLocation()
+                + ", longitude=" + record.getLongitude()
+                + ", latitude=" + record.getLatitude()
                 + ", faceScore=" + record.getFaceScore()
                 + ", clientDeviceChanged=" + (riskFeatures == null ? null : riskFeatures.getDeviceChanged())
                 + ", clientLocationChanged=" + (riskFeatures == null ? null : riskFeatures.getLocationChanged());
