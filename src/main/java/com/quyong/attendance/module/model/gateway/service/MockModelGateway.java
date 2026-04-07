@@ -2,13 +2,13 @@ package com.quyong.attendance.module.model.gateway.service;
 
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeRequest;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeResponse;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 
 @Service
-@ConditionalOnMissingBean(ModelGateway.class)
+@ConditionalOnExpression("'${app.llm.provider:mock}' != 'qwen'")
 public class MockModelGateway implements ModelGateway {
 
     @Override
