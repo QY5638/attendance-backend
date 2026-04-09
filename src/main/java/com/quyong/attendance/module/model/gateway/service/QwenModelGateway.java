@@ -94,9 +94,31 @@ public class QwenModelGateway implements ModelGateway {
 
     private List<Map<String, String>> buildMessages(ModelInvokeRequest request) {
         List<Map<String, String>> messages = new ArrayList<Map<String, String>>();
-        messages.add(buildMessage("system", request.getPromptContent()));
+        messages.add(buildMessage("system", ensureJsonInstruction(request.getPromptContent())));
         messages.add(buildMessage("user", request.getInputSummary()));
         return messages;
+    }
+
+    private String ensureJsonInstruction(String promptContent) {
+        String content = requireText(promptContent, "模型请求内容不能为空");
+        StringBuilder builder = new StringBuilder(content);
+
+        if (!content.toLowerCase().contains("json")) {
+            builder.append("\n\n请仅返回合法 JSON 对象，不要输出任何 JSON 以外的说明文字。");
+        }
+
+        builder.append("\n\n返回 JSON 必须包含以下字段：")
+                .append(" conclusion")
+                .append(", riskLevel")
+                .append(", confidenceScore")
+                .append(", decisionReason")
+                .append(", reasonSummary")
+                .append(", actionSuggestion")
+                .append(", similarCaseSummary。")
+                .append(" 其中 riskLevel 仅允许 HIGH、MEDIUM、LOW。")
+                .append(" 所有字段都必须返回，缺失时请返回空字符串或 0，不要省略字段。");
+
+        return builder.toString();
     }
 
     private Map<String, String> buildMessage(String role, String content) {

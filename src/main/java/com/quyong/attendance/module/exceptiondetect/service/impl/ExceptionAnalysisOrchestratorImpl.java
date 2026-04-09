@@ -200,7 +200,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                         "EXCEPTION_ANALYSIS",
                         fallbackException.getId(),
                         promptTemplate.getId(),
-                        inputSummary,
+                        enrichLogInputSummary(inputSummary),
                         exception.getMessage(),
                         Integer.valueOf((int) (System.currentTimeMillis() - startAt))
                 );

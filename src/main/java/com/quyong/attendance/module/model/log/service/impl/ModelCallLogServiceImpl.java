@@ -15,6 +15,8 @@ import java.util.List;
 @Service
 public class ModelCallLogServiceImpl implements ModelCallLogService {
 
+    private static final int ERROR_MESSAGE_MAX_LENGTH = 255;
+
     private final ModelCallLogMapper modelCallLogMapper;
     private final ModelCallLogValidationSupport modelCallLogValidationSupport;
 
@@ -56,8 +58,20 @@ public class ModelCallLogServiceImpl implements ModelCallLogService {
         entity.setInputSummary(inputSummary);
         entity.setStatus("FAILED");
         entity.setLatencyMs(latencyMs);
-        entity.setErrorMessage(errorMessage);
+        entity.setErrorMessage(trimErrorMessage(errorMessage));
         modelCallLogMapper.insert(entity);
+    }
+
+    private String trimErrorMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        if (errorMessage.length() <= ERROR_MESSAGE_MAX_LENGTH) {
+            return errorMessage;
+        }
+
+        return errorMessage.substring(0, ERROR_MESSAGE_MAX_LENGTH);
     }
 
     @Override

@@ -2,6 +2,8 @@ package com.quyong.attendance.common.exception;
 
 import com.quyong.attendance.common.api.Result;
 import com.quyong.attendance.common.api.ResultCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
     public Result<Object> handleBusinessException(BusinessException exception) {
@@ -30,6 +34,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public Result<Object> handleException(Exception exception) {
+        log.error("Unhandled server exception", exception);
         return Result.failure(ResultCode.SERVER_ERROR, null);
     }
 }
