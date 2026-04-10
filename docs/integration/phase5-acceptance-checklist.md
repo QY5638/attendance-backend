@@ -29,21 +29,23 @@
 
 > 当前说明：截至 `2026-04-08`，当前本地与远端基线都只保留 `main`；已清理历史 `phase5-docs-runbook` worktree。后续若需修正文档或补证，实际操作必须放在非 `main` 的隔离分支/worktree 中，但本文中的当前工作目录、文档路径与证据口径统一按主仓库根目录 `D:\Graduation project\backend`、`D:\Graduation project\frontend` 记录；历史 Phase 5 页面级留证继续保留在仓库内 `docs/integration/evidence/phase5-ui`。同时，为适配当前真实库，`exceptionAnalysis`、`warningRecord`、`riskLevel`、`decisionTrace`、`modelCallLog` 的最小 schema 同步口径仍然有效。
 
-### 2.3 最小命令校验
+> 口径补充：本文第 `2.3` 节记录的是 `2026-04-07` Phase 5 验收时的历史命令与证据，保留原文用于回溯，不追改为当前流水线写法。当前仓库后端 CI 已改为执行 `mvn test` 全量回归；当前默认数据库回退库名已对齐为 `system`。如与本文历史记录不一致，以仓库根 `README.md`、`.github/workflows/backend-ci.yml`、`src/main/resources/application-dev.yml`、`src/main/resources/application-prod.yml` 为准。
 
-- [x] 已完成后端最小测试命令校验
-- [x] 已完成后端编译命令校验
+### 2.3 历史最小命令校验记录
+
+- [x] 已完成后端最小测试命令校验（历史口径）
+- [x] 已完成后端编译命令校验（历史口径）
 - [x] 已完成前端测试命令校验
 - [x] 已完成前端构建命令校验
 
-#### 2.3.1 后端最小测试
+#### 2.3.1 后端最小测试（历史口径）
 
 - 操作：在后端仓库根目录 `D:\Graduation project\backend` 执行 `mvn "-Dtest=DeviceManagementIntegrationTest,AuthSecurityIntegrationTest,ModuleSkeletonBeansTest" test`。
 - 预期：测试命令执行成功，最小测试集全部通过，无新增阻塞失败。
 - 证据：`后端最小测试 | 2026-04-07 17:43 / backend | Maven surefire 输出（Tests run: 41, Failures: 0, Errors: 0, Skipped: 0, BUILD SUCCESS）`
 - 失败时记录：记录失败测试类名、报错摘要、相关日志位置、是否为环境问题或代码问题。
 
-#### 2.3.2 后端编译
+#### 2.3.2 后端编译（历史口径）
 
 - 操作：在后端仓库根目录 `D:\Graduation project\backend` 执行 `mvn -DskipTests compile`。
 - 预期：编译成功结束，无编译错误、无资源加载阻塞问题。

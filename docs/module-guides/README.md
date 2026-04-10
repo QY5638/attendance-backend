@@ -2,6 +2,8 @@
 
 ## 1. 使用方式
 
+- 当前后端文档总入口：`D:\Graduation project\backend\docs\README.md`
+- 当前运行、配置、测试、编译和 CI 口径以 `D:\Graduation project\backend\README.md` 为准。
 - 开发任一后端模块前，先读取：
   - `D:\Graduation project\backend\AGENTS.md`
   - `D:\Graduation project\backend\docs\progress\后端并发开发模块清单.md`

@@ -39,7 +39,7 @@
 - 至少补齐以下配置：`spring.datasource.url`、`spring.datasource.username`、`spring.datasource.password`、`spring.redis.host`、`spring.redis.port`。
 - `spring.redis.password` 也要显式处理：Redis 开启密码时填写真实值；如果本地 Redis 无密码，需要在 `application-local.yml` 中显式设为 `~`（YAML null）或其他等价空值，不能删除该键后回落到默认 `${REDIS_PASSWORD:change_me}`。
 - 如果要验证复杂异常分析或地图链路，再补齐 `app.llm.provider`、`app.llm.base-url`、`app.llm.model`、`app.llm.api-key`、`app.map.provider`、`app.map.base-url`、`app.map.api-key`。
-- 若按仓库 SQL 脚本原样初始化数据库，数据源库名要指向 `system`，不要继续使用默认回退库名 `attendance_demo`。
+- 若按仓库 SQL 脚本原样初始化数据库，数据源库名要指向 `system`；当前默认回退库名已对齐为 `system`，如显式覆盖 `DB_URL` 也应保持一致。
 - 排查配置问题时，不要只看 `application-local.yml`，还要同时核对 `src/main/resources/application.yml` 与 `src/main/resources/application-dev.yml`。
 
 ### 3.2 后端启动

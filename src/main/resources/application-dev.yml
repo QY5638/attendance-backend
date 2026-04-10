@@ -2,7 +2,7 @@ spring:
   config:
     import: optional:file:${user.dir}/application-local.yml
   datasource:
-    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/attendance_demo?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/system?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:change_me}
     password: ${DB_PASSWORD:change_me}
     driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}

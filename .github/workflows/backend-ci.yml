@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   backend-ci:
-    name: Maven 测试与编译
+    name: Maven 全量测试与编译
     runs-on: ubuntu-latest
 
     steps:
@@ -23,8 +23,8 @@ jobs:
           java-version: '8'
           cache: maven
 
-      - name: 运行后端最小测试集
-        run: mvn "-Dtest=DeviceManagementIntegrationTest,AuthSecurityIntegrationTest,ModuleSkeletonBeansTest" test
+      - name: 运行后端全量测试集
+        run: mvn test
 
       - name: 运行编译校验
         run: mvn -DskipTests compile
