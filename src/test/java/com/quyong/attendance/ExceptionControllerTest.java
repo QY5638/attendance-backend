@@ -190,8 +190,8 @@ class ExceptionControllerTest {
                 String.class,
                 exceptionId
         );
-        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("clientDeviceChanged=true"));
-        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("clientLocationChanged=true"));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("客户端电脑设备是否变化：是"));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("客户端打卡地点是否变化：是"));
     }
 
     @Test
@@ -217,7 +217,7 @@ class ExceptionControllerTest {
                 String.class,
                 exceptionId
         );
-        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("llmProvider=qwen"));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("模型提供方：qwen"));
     }
 
     @Test
@@ -245,8 +245,8 @@ class ExceptionControllerTest {
                 String.class,
                 exceptionId
         );
-        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("promptVersion=v2.1"));
-        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("promptFingerprint=" + promptFingerprint));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("提示词版本：v2.1"));
+        org.junit.jupiter.api.Assertions.assertTrue(inputSummary.contains("提示词指纹：" + promptFingerprint));
     }
 
     @Test

@@ -170,7 +170,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-001\",\"name\":\"重复设备\",\"location\":\"办公区A\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备编号已存在"));
+                .andExpect(jsonPath("$.message").value("地点编号已存在"));
     }
 
     @Test
@@ -183,7 +183,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"   \",\"name\":\"新增设备\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备编号不能为空"));
+                .andExpect(jsonPath("$.message").value("地点编号不能为空"));
     }
 
     @Test
@@ -196,7 +196,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-011\",\"name\":\"   \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备名称不能为空"));
+                .andExpect(jsonPath("$.message").value("管理名称不能为空"));
     }
 
     @Test
@@ -222,7 +222,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-011\",\"name\":\"新增设备\",\"status\":2}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备状态不合法"));
+                .andExpect(jsonPath("$.message").value("地点状态不合法"));
     }
 
     @Test
@@ -287,7 +287,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"   \",\"name\":\"二号考勤机\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备编号不能为空"));
+                .andExpect(jsonPath("$.message").value("地点编号不能为空"));
     }
 
     @Test
@@ -300,7 +300,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-002\",\"name\":\"   \"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备名称不能为空"));
+                .andExpect(jsonPath("$.message").value("管理名称不能为空"));
     }
 
     @Test
@@ -326,7 +326,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-002\",\"name\":\"二号考勤机\",\"status\":2}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备状态不合法"));
+                .andExpect(jsonPath("$.message").value("地点状态不合法"));
     }
 
     @Test
@@ -361,7 +361,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"DEV-009\",\"status\":2}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备状态不合法"));
+                .andExpect(jsonPath("$.message").value("地点状态不合法"));
     }
 
     @Test
@@ -374,7 +374,7 @@ class DeviceManagementIntegrationTest {
                         .content("{\"deviceId\":\"   \",\"status\":1}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备编号不能为空"));
+                .andExpect(jsonPath("$.message").value("地点编号不能为空"));
     }
 
     @Test
@@ -416,7 +416,7 @@ class DeviceManagementIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备不存在"));
+                .andExpect(jsonPath("$.message").value("打卡地点不存在"));
     }
 
     @Test
@@ -428,7 +428,7 @@ class DeviceManagementIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("设备已关联打卡记录，不能删除，请先停用设备"));
+                .andExpect(jsonPath("$.message").value("打卡地点已关联考勤记录，不能删除，请先停用地点"));
     }
 
     @Test
