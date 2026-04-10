@@ -85,7 +85,7 @@ class WarningControllerTest {
     void shouldGenerateWarningsForHighAndMediumExceptionsWhenListing() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
-        insertExceptionAnalysis(4001L, 3001L, "PROXY_CHECKIN", new BigDecimal("92.50"), "设备与地点异常共同提升风险", "建议优先人工复核");
+        insertExceptionAnalysis(4001L, 3001L, "PROXY_CHECKIN", new BigDecimal("92.50"), "电脑设备与地点异常共同提升风险", "建议优先人工复核");
         insertAttendanceException(3002L, 2002L, 1001L, "LATE", "MEDIUM", "RULE", "超过上班时间阈值，判定为迟到", "PENDING");
         insertAttendanceException(3003L, 2003L, 1001L, "REPEAT_CHECK", "LOW", "RULE", "短时间内重复打卡", "PENDING");
 
@@ -207,7 +207,7 @@ class WarningControllerTest {
     void shouldReevaluateWarningByLatestExceptionResult() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
-        insertExceptionAnalysis(4001L, 3001L, "PROXY_CHECKIN", new BigDecimal("92.50"), "设备与地点异常共同提升风险", "建议优先人工复核");
+        insertExceptionAnalysis(4001L, 3001L, "PROXY_CHECKIN", new BigDecimal("92.50"), "电脑设备与地点异常共同提升风险", "建议优先人工复核");
         insertWarningRecord(5001L, 3001L, "ATTENDANCE_WARNING", "HIGH", "PROCESSED", new BigDecimal("60.00"), "旧摘要", "旧建议", "RULE", "2026-03-26 08:59:20");
 
         mockMvc.perform(post("/api/warning/re-evaluate")
@@ -219,7 +219,7 @@ class WarningControllerTest {
                 .andExpect(jsonPath("$.data.id").value(5001))
                 .andExpect(jsonPath("$.data.type").value("RISK_WARNING"))
                 .andExpect(jsonPath("$.data.status").value("PROCESSED"))
-                .andExpect(jsonPath("$.data.aiSummary").value("设备与地点异常共同提升风险"))
+                .andExpect(jsonPath("$.data.aiSummary").value("电脑设备与地点异常共同提升风险"))
                 .andExpect(jsonPath("$.data.disposeSuggestion").value("建议优先人工复核"));
 
         String processStatus = jdbcTemplate.queryForObject(

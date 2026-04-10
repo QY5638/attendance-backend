@@ -48,6 +48,9 @@ public class AttendanceController {
         AttendanceCheckinDTO target = dto == null ? new AttendanceCheckinDTO() : dto;
         target.setUserId(currentAuthUser().getUserId());
         target.setIpAddr(request == null ? null : request.getRemoteAddr());
+        if (target.getDeviceInfo() == null && request != null) {
+            target.setDeviceInfo(request.getHeader("User-Agent"));
+        }
         return Result.success(attendanceService.checkin(target));
     }
 

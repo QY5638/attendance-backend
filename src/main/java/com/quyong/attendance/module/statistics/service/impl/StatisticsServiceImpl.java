@@ -168,9 +168,9 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         StatisticsSummaryVO vo = new StatisticsSummaryVO();
         vo.setPeriodType(safe.getPeriodType());
-        vo.setSummary(statisticsSummarySupport.buildSummary(recordCount, exceptionCount, analysisCount, warningCount, reviewCount, closedLoopCount));
-        vo.setHighlightRisks(statisticsSummarySupport.buildHighlightRisks(highRiskCount, analysisGapCount, unprocessedWarningCount, closedLoopGapCount, missingDecisionTraceCount, missingModelLogCount));
-        vo.setManageSuggestion(statisticsSummarySupport.buildManageSuggestion(highRiskCount, unprocessedWarningCount, closedLoopGapCount));
+        vo.setSummary(emptyToNull(statisticsMapper.selectLatestSummaryText(scopeUserId, null, startTime, endTime)));
+        vo.setHighlightRisks(emptyToNull(statisticsMapper.selectLatestHighlightText(scopeUserId, null, startTime, endTime)));
+        vo.setManageSuggestion(emptyToNull(statisticsMapper.selectLatestManageSuggestionText(scopeUserId, null, startTime, endTime)));
         return vo;
     }
 
@@ -281,8 +281,8 @@ public class StatisticsServiceImpl implements StatisticsService {
         vo.setDeptId(department.getId());
         vo.setDeptName(department.getName());
         vo.setRiskScore(statisticsSummarySupport.calculateDepartmentRiskScore(recordCount, exceptionCount, highRiskCount, warningCount, unprocessedWarningCount, closedLoopCount));
-        vo.setRiskSummary(statisticsSummarySupport.buildDepartmentRiskSummary(department.getName(), highRiskCount, unprocessedWarningCount, closedLoopGapCount));
-        vo.setManageSuggestion(statisticsSummarySupport.buildDepartmentManageSuggestion(highRiskCount, unprocessedWarningCount, closedLoopGapCount));
+        vo.setRiskSummary(emptyToNull(statisticsMapper.selectLatestHighlightText(null, department.getId(), startTime, endTime)));
+        vo.setManageSuggestion(emptyToNull(statisticsMapper.selectLatestManageSuggestionText(null, department.getId(), startTime, endTime)));
         return vo;
     }
 
@@ -337,6 +337,13 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
         }
         return 0L;
+    }
+
+    private String emptyToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private void mergeTrend(Map<String, ExceptionTrendPointVO> pointMap,

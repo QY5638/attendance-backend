@@ -39,6 +39,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -100,7 +101,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
         Device device = deviceValidationSupport.requireExistingDevice(validatedDTO.getDeviceId());
         if (device.getStatus() == null || device.getStatus() != 1) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "设备已停用，不能打卡");
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "打卡地点已停用，不能打卡");
         }
 
         FaceVerifyDTO faceVerifyDTO = new FaceVerifyDTO();
@@ -116,8 +117,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendanceRecord.setCheckTime(LocalDateTime.now(clock));
         attendanceRecord.setCheckType(validatedDTO.getCheckType());
         attendanceRecord.setDeviceId(validatedDTO.getDeviceId());
+        attendanceRecord.setDeviceInfo(resolveComputerDeviceInfo(validatedDTO));
         attendanceRecord.setIpAddr(validatedDTO.getIpAddr());
-        attendanceRecord.setLocation(device.getLocation());
+        attendanceRecord.setLocation(resolvePunchLocation(device));
         attendanceRecord.setLongitude(device.getLongitude());
         attendanceRecord.setLatitude(device.getLatitude());
         attendanceRecord.setFaceScore(faceVerifyVO.getFaceScore());
@@ -304,6 +306,36 @@ public class AttendanceServiceImpl implements AttendanceService {
             return "完成下班打卡";
         }
         return "完成上班打卡";
+    }
+
+    private String resolveComputerDeviceInfo(AttendanceCheckinDTO dto) {
+        if (dto != null && StringUtils.hasText(dto.getDeviceInfo())) {
+            return limitText(dto.getDeviceInfo().trim(), 120);
+        }
+        if (dto != null && StringUtils.hasText(dto.getIpAddr())) {
+            return "网页端电脑（" + dto.getIpAddr().trim() + "）";
+        }
+        return "网页端电脑";
+    }
+
+    private String resolvePunchLocation(Device device) {
+        if (device == null) {
+            return "未配置地点";
+        }
+        if (StringUtils.hasText(device.getLocation())) {
+            return device.getLocation().trim();
+        }
+        if (StringUtils.hasText(device.getName())) {
+            return device.getName().trim();
+        }
+        return device.getId();
+    }
+
+    private String limitText(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        return value.length() <= maxLength ? value : value.substring(0, maxLength);
     }
 
     private AuthUser currentAuthUser() {

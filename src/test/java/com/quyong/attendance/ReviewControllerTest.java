@@ -130,30 +130,30 @@ class ReviewControllerTest {
 
     @Test
     void shouldReturnAssistantInfoFromAnalysisAndDecisionTrace() throws Exception {
-        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
-        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "电脑设备与地点异常共同提升风险", "建议优先人工复核", "存在相似电脑设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别电脑设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
         String adminToken = loginAndExtractToken("admin", "123456");
 
         mockMvc.perform(get("/api/review/3001/assistant")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("设备与地点异常共同提升风险；建议优先人工复核"))
-                .andExpect(jsonPath("$.data.similarCaseSummary").value("存在相似设备异常与低分值组合案例"))
+                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("电脑设备与地点异常共同提升风险；建议优先人工复核"))
+                .andExpect(jsonPath("$.data.similarCaseSummary").value("存在相似电脑设备异常与低分值组合案例"))
                 .andExpect(jsonPath("$.data.decisionReason").value("规则与模型结论一致，建议人工复核"))
                 .andExpect(jsonPath("$.data.confidenceScore").value(92.5));
     }
 
     @Test
     void shouldReturnAssistantInfoFromAnalysisWhenDecisionTraceMissing() throws Exception {
-        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "88.80", "分析层回退判定依据", "建议结合历史记录确认", "模型识别到跨设备与临界分值组合风险", "建议优先人工核验近期设备使用情况", "存在同部门相似代打卡案例", "v1.0");
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "88.80", "分析层回退判定依据", "建议结合历史记录确认", "模型识别到跨电脑设备与临界分值组合风险", "建议优先人工核验近期电脑设备信息", "存在同部门相似代打卡案例", "v1.0");
         String adminToken = loginAndExtractToken("admin", "123456");
 
         mockMvc.perform(get("/api/review/3001/assistant")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("模型识别到跨设备与临界分值组合风险；建议优先人工核验近期设备使用情况"))
+                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("模型识别到跨电脑设备与临界分值组合风险；建议优先人工核验近期电脑设备信息"))
                 .andExpect(jsonPath("$.data.similarCaseSummary").value("存在同部门相似代打卡案例"))
                 .andExpect(jsonPath("$.data.decisionReason").value("分析层回退判定依据"))
                 .andExpect(jsonPath("$.data.confidenceScore").value(88.8));
@@ -172,8 +172,8 @@ class ReviewControllerTest {
 
     @Test
     void shouldSubmitReviewAndUpdateExceptionStatus() throws Exception {
-        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
-        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "电脑设备与地点异常共同提升风险", "建议优先人工复核", "存在相似电脑设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别电脑设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
         String adminToken = loginAndExtractToken("admin", "123456");
 
         mockMvc.perform(post("/api/review/submit")
@@ -186,7 +186,7 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.data.reviewUserId").value(9001))
                 .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.reviewComment").value("人工确认异常"))
-                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("设备与地点异常共同提升风险；建议优先人工复核"));
+                .andExpect(jsonPath("$.data.aiReviewSuggestion").value("电脑设备与地点异常共同提升风险；建议优先人工复核"));
 
         Integer reviewCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM reviewRecord WHERE exceptionId = 3001",
@@ -210,8 +210,8 @@ class ReviewControllerTest {
 
     @Test
     void shouldSubmitReviewAndMarkRelatedWarningProcessed() throws Exception {
-        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
-        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "电脑设备与地点异常共同提升风险", "建议优先人工复核", "存在相似电脑设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别电脑设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
         insertWarningRecord(5001L, 3001L, "RISK_WARNING", "HIGH", "UNPROCESSED", "96.00", "高风险摘要", "立即处理", "MODEL_FUSION", "2026-03-26 09:06:00");
         String adminToken = loginAndExtractToken("admin", "123456");
 
@@ -232,7 +232,7 @@ class ReviewControllerTest {
     @Test
     void shouldKeepLazyGeneratedWarningProcessedAfterReviewSubmit() throws Exception {
         insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "设备与地点异常共同提升风险", "建议优先人工复核", "存在相似设备异常与低分值组合案例", "v1.0");
-        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别电脑设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
         String adminToken = loginAndExtractToken("admin", "123456");
 
         mockMvc.perform(post("/api/review/submit")

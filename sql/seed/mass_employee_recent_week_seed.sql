@@ -123,7 +123,7 @@ FROM `attendanceRecord` ar
 WHERE ar.userId = 1021 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-04 09:18:00';
 
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`)
-SELECT 3031, ar.id, 1024, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '岳雯在外部设备打卡且人脸分值偏低', 'REVIEWED', '2026-04-05 08:43:10'
+SELECT 3031, ar.id, 1024, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '岳雯在外部电脑设备环境下打卡且人脸分值偏低', 'REVIEWED', '2026-04-05 08:43:10'
 FROM `attendanceRecord` ar
 WHERE ar.userId = 1024 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-05 08:43:00';
 
@@ -148,7 +148,7 @@ FROM `attendanceRecord` ar
 WHERE ar.userId = 1036 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-09 09:21:00';
 
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`)
-SELECT 3036, ar.id, 1039, 'MULTI_LOCATION_CONFLICT', 'HIGH', 'MODEL', '诗蕾在外部区域设备完成跨地点打卡', 'REVIEWED', '2026-04-10 08:41:10'
+SELECT 3036, ar.id, 1039, 'MULTI_LOCATION_CONFLICT', 'HIGH', 'MODEL', '诗蕾在外部区域完成打卡且电脑设备信息异常', 'REVIEWED', '2026-04-10 08:41:10'
 FROM `attendanceRecord` ar
 WHERE ar.userId = 1039 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-10 08:41:00';
 
@@ -159,12 +159,12 @@ WHERE ar.userId = 1042 AND ar.checkType = 'OUT' AND ar.checkTime = '2026-04-10 1
 
 INSERT IGNORE INTO `exceptionAnalysis` (`id`, `exceptionId`, `promptTemplateId`, `inputSummary`, `modelResult`, `modelConclusion`, `confidenceScore`, `decisionReason`, `suggestion`, `reasonSummary`, `actionSuggestion`, `similarCaseSummary`, `promptVersion`, `createTime`) VALUES
 (4030, 3030, 8001, '周怡在09:18完成签到', '识别为迟到异常，建议提醒准时到岗', 'LATE', 72.60, '超过上班阈值18分钟', '建议部门负责人跟进提醒', '到岗时间晚于正常时段', '建议关注后续一周到岗稳定性', '历史同类迟到样本多通过提醒改善', 'v1.0', '2026-04-04 09:18:20'),
-(4031, 3031, 8001, '岳雯在外部区域设备打卡且分值偏低', '识别为疑似代打卡高风险，建议优先复核', 'PROXY_CHECKIN', 93.10, '外部设备、人脸分值偏低且行为异常', '建议管理员优先人工核验', '外部设备与低分值叠加明显提升代打卡风险', '建议查看同日轨迹与设备使用情况', '历史相似场景多被确认异常', 'v1.0', '2026-04-05 08:43:20'),
+(4031, 3031, 8001, '岳雯在外部区域打卡且电脑设备信息异常、分值偏低', '识别为疑似代打卡高风险，建议优先复核', 'PROXY_CHECKIN', 93.10, '外部电脑设备信息、人脸分值偏低且行为异常', '建议管理员优先人工核验', '外部电脑设备信息与低分值叠加明显提升代打卡风险', '建议查看同日轨迹与电脑设备信息', '历史相似场景多被确认异常', 'v1.0', '2026-04-05 08:43:20'),
 (4032, 3032, 8001, '舒妍于17:18完成下班打卡', '识别为早退异常，建议留档观察', 'EARLY_LEAVE', 60.40, '早于正常下班时间', '建议记录并观察是否重复发生', '离岗时间早于规则阈值', '建议结合近期出勤整体判断', '同类早退样本多为偶发情况', 'v1.0', '2026-04-06 17:18:20'),
 (4033, 3033, 8001, '司敏在短时间内重复提交打卡', '识别为重复打卡，建议核对是否误操作', 'REPEAT_CHECK', 63.50, '重复打卡规则命中', '建议查看原始打卡记录', '短时重复签到与规则阈值冲突', '建议排查是否存在误触发', '历史同类样本多数为重复提交', 'v1.0', '2026-04-07 09:03:20'),
 (4034, 3034, 8001, '雨桐在06:12完成签到', '识别为非法时间打卡，建议核验排班', 'ILLEGAL_TIME', 68.40, '发生在非规定工作时段', '建议核对排班与加班审批', '打卡时间超出规则时间窗', '建议核实是否存在临时加班安排', '历史同类样本多与排班变更有关', 'v1.0', '2026-04-08 06:12:20'),
 (4035, 3035, 8001, '媛静在09:21完成签到', '识别为迟到异常，建议提醒考勤纪律', 'LATE', 74.20, '超过上班阈值21分钟', '建议部门负责人及时提醒', '到岗时间显著晚于正常区间', '建议关注后续到岗波动', '同类迟到样本多通过提醒改善', 'v1.0', '2026-04-09 09:21:20'),
-(4036, 3036, 8001, '诗蕾在外部设备完成跨地点打卡', '识别为多地点异常高风险，建议优先复核', 'MULTI_LOCATION_CONFLICT', 90.80, '外部设备与地点跨度异常', '建议核验现场轨迹与设备情况', '短时跨区域行为不符合常规考勤路线', '建议重点复核同日位置变化', '历史高风险多地点异常样本较多', 'v1.0', '2026-04-10 08:41:20'),
+(4036, 3036, 8001, '诗蕾在外部区域完成打卡且电脑设备信息异常', '识别为多地点异常高风险，建议优先复核', 'MULTI_LOCATION_CONFLICT', 90.80, '外部电脑设备信息与地点跨度异常', '建议核验现场轨迹与电脑设备信息', '短时跨区域行为不符合常规考勤路线', '建议重点复核同日位置变化', '历史高风险多地点异常样本较多', 'v1.0', '2026-04-10 08:41:20'),
 (4037, 3037, 8001, '奕辰于17:08完成下班打卡', '识别为早退异常，建议留档观察', 'EARLY_LEAVE', 66.30, '明显早于下班时间阈值', '建议部门负责人关注', '下班时间明显提前', '建议核实是否存在提前离岗审批', '同类早退样本常需结合审批判断', 'v1.0', '2026-04-10 17:08:20');
 
 INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `status`, `priorityScore`, `aiSummary`, `disposeSuggestion`, `decisionSource`, `sendTime`) VALUES
@@ -178,9 +178,9 @@ INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `statu
 (5037, 3037, 'ATTENDANCE_WARNING', 'MEDIUM', 'UNPROCESSED', 66.30, '奕辰提前离岗，建议核对审批。', '建议核对离岗审批情况。', 'RULE', '2026-04-10 17:08:30');
 
 INSERT IGNORE INTO `reviewRecord` (`id`, `exceptionId`, `reviewUserId`, `result`, `comment`, `aiReviewSuggestion`, `similarCaseSummary`, `feedbackTag`, `strategyFeedback`, `reviewTime`) VALUES
-(6030, 3031, 9001, 'CONFIRMED', '确认外部设备打卡异常，已完成处理', 'AI 建议优先核对设备位置与人脸分值。', '相似场景多与高风险代打卡有关。', 'TRUE_POSITIVE', '建议继续保留外部设备高风险策略。', '2026-04-05 09:05:00'),
+(6030, 3031, 9001, 'CONFIRMED', '确认外部电脑设备打卡异常，已完成处理', 'AI 建议优先核对电脑设备信息与人脸分值。', '相似场景多与高风险代打卡有关。', 'TRUE_POSITIVE', '建议继续保留外部电脑设备高风险策略。', '2026-04-05 09:05:00'),
 (6031, 3033, 9001, 'FALSE_POSITIVE', '核对后判定为员工误操作', 'AI 建议查看重复点击时间窗。', '相似案例中存在误触发情况。', 'FALSE_POSITIVE', '建议优化重复打卡识别阈值。', '2026-04-07 10:10:00'),
-(6032, 3036, 9001, 'CONFIRMED', '确认跨区域打卡异常，已升级关注', 'AI 建议优先核对同日轨迹与设备日志。', '历史跨区域高风险异常多数被确认。', 'TRUE_POSITIVE', '建议继续强化多地点异常规则。', '2026-04-10 09:20:00');
+(6032, 3036, 9001, 'CONFIRMED', '确认跨区域打卡异常，已升级关注', 'AI 建议优先核对同日轨迹与电脑设备信息。', '历史跨区域高风险异常多数被确认。', 'TRUE_POSITIVE', '建议继续强化多地点异常规则。', '2026-04-10 09:20:00');
 
 -- 部门差异化异常画像补充：
 -- 综合管理部：问题少但闭环快
@@ -261,7 +261,7 @@ FROM `attendanceRecord` ar
 WHERE ar.userId = 1026 AND ar.checkType = 'OUT' AND ar.checkTime = '2026-04-10 17:20:00';
 
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`)
-SELECT 3046, ar.id, 1031, 'MULTI_LOCATION_CONFLICT', 'HIGH', 'MODEL', '瑞林在外部区域设备打卡且存在跨区域风险', 'REVIEWED', '2026-04-08 08:44:10'
+SELECT 3046, ar.id, 1031, 'MULTI_LOCATION_CONFLICT', 'HIGH', 'MODEL', '瑞林在外部区域打卡且电脑设备信息异常，存在跨区域风险', 'REVIEWED', '2026-04-08 08:44:10'
 FROM `attendanceRecord` ar
 WHERE ar.userId = 1031 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-08 08:44:00';
 
@@ -276,7 +276,7 @@ FROM `attendanceRecord` ar
 WHERE ar.userId = 1038 AND ar.checkType = 'OUT' AND ar.checkTime = '2026-04-06 17:14:00';
 
 INSERT IGNORE INTO `attendanceException` (`id`, `recordId`, `userId`, `type`, `riskLevel`, `sourceType`, `description`, `processStatus`, `createTime`)
-SELECT 3049, ar.id, 1049, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '晨曦在外部区域设备打卡且存在疑似代打卡风险', 'REVIEWED', '2026-04-09 08:46:10'
+SELECT 3049, ar.id, 1049, 'PROXY_CHECKIN', 'HIGH', 'MODEL', '晨曦在外部区域打卡且电脑设备信息异常，存在疑似代打卡风险', 'REVIEWED', '2026-04-09 08:46:10'
 FROM `attendanceRecord` ar
 WHERE ar.userId = 1049 AND ar.checkType = 'IN' AND ar.checkTime = '2026-04-09 08:46:00';
 
@@ -287,10 +287,10 @@ INSERT IGNORE INTO `exceptionAnalysis` (`id`, `exceptionId`, `promptTemplateId`,
 (4043, 3043, 8001, '安然在09:19完成签到', '识别为迟到异常，建议升级关注', 'LATE', 74.10, '连续第三天超过上班阈值', '建议重点关注本周到岗纪律', '连续迟到模式进一步强化', '建议结合周度趋势进行管理提醒', '技术部门连续迟到样本较少但需关注', 'v1.0', '2026-04-10 09:19:20'),
 (4044, 3044, 8001, '关琳于17:15完成下班打卡', '识别为早退异常，建议留档观察', 'EARLY_LEAVE', 60.80, '明显早于下班时间阈值', '建议记录并持续观察', '离岗时间早于规则要求', '建议核实是否存在提前离岗审批', '行政部门早退样本多为轻中度异常', 'v1.0', '2026-04-09 17:15:20'),
 (4045, 3045, 8001, '裴宇于17:20完成下班打卡', '识别为早退异常，建议继续关注', 'EARLY_LEAVE', 61.40, '早于正常下班时间40分钟', '建议留档并观察后续出勤', '早退时长较明显', '建议结合审批和工作安排判断', '行政部门相似样本多需人工确认', 'v1.0', '2026-04-10 17:20:20'),
-(4046, 3046, 8001, '瑞林在外部区域设备打卡', '识别为多地点异常高风险，建议优先复核', 'MULTI_LOCATION_CONFLICT', 90.60, '外部设备与地点跨度异常', '建议核验现场轨迹与设备使用情况', '短时跨区域行为不符合常规考勤路线', '建议重点复核同日位置变化', '市场部外勤场景高风险异常应重点关注', 'v1.0', '2026-04-08 08:44:20'),
+(4046, 3046, 8001, '瑞林在外部区域打卡且电脑设备信息异常', '识别为多地点异常高风险，建议优先复核', 'MULTI_LOCATION_CONFLICT', 90.60, '外部电脑设备信息与地点跨度异常', '建议核验现场轨迹与电脑设备信息', '短时跨区域行为不符合常规考勤路线', '建议重点复核同日位置变化', '市场部外勤场景高风险异常应重点关注', 'v1.0', '2026-04-08 08:44:20'),
 (4047, 3047, 8001, '柏涵在09:17完成签到', '识别为迟到异常，建议提醒准时到岗', 'LATE', 72.10, '超过上班阈值17分钟', '建议班组负责人提醒', '到岗时间晚于正常区间', '建议关注客服班次稳定性', '客服部门轻中度迟到样本相对集中', 'v1.0', '2026-04-08 09:17:20'),
 (4048, 3048, 8001, '欣悦于17:14完成下班打卡', '识别为早退异常，建议核验审批后结案', 'EARLY_LEAVE', 58.90, '早于正常下班时间', '建议核对审批并快速闭环', '离岗时间略早于正常要求', '建议结合当日审批情况确认', '法务合规部异常通常闭环较快', 'v1.0', '2026-04-06 17:14:20'),
-(4049, 3049, 8001, '晨曦在外部区域设备打卡且分值偏低', '识别为疑似代打卡高风险，建议立即复核', 'PROXY_CHECKIN', 94.20, '外部设备、人脸分值偏低且行为异常', '建议优先完成人工复核', '多项高风险特征同时命中', '建议核验设备与人员轨迹', '运营部门高风险异常需优先闭环', 'v1.0', '2026-04-09 08:46:20');
+(4049, 3049, 8001, '晨曦在外部区域打卡且电脑设备信息异常、分值偏低', '识别为疑似代打卡高风险，建议立即复核', 'PROXY_CHECKIN', 94.20, '外部电脑设备信息、人脸分值偏低且行为异常', '建议优先完成人工复核', '多项高风险特征同时命中', '建议核验电脑设备信息与人员轨迹', '运营部门高风险异常需优先闭环', 'v1.0', '2026-04-09 08:46:20');
 
 INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `status`, `priorityScore`, `aiSummary`, `disposeSuggestion`, `decisionSource`, `sendTime`) VALUES
 (5040, 3040, 'ATTENDANCE_WARNING', 'MEDIUM', 'PROCESSED', 69.20, '韩旭出现非法时间打卡。', '建议核对排班或加班审批。', 'RULE', '2026-04-07 06:18:30'),
@@ -307,6 +307,6 @@ INSERT IGNORE INTO `warningRecord` (`id`, `exceptionId`, `type`, `level`, `statu
 INSERT IGNORE INTO `reviewRecord` (`id`, `exceptionId`, `reviewUserId`, `result`, `comment`, `aiReviewSuggestion`, `similarCaseSummary`, `feedbackTag`, `strategyFeedback`, `reviewTime`) VALUES
 (6040, 3040, 9001, 'FALSE_POSITIVE', '核实后为临时加班打卡，已闭环', 'AI 建议核对排班或加班审批。', '管理部同类样本多在当天完成确认。', 'FALSE_POSITIVE', '建议保留非法时间核验提示，但加强审批联动。', '2026-04-07 08:20:00'),
 (6041, 3042, 9001, 'CONFIRMED', '确认连续迟到情况，已提醒负责人跟进', 'AI 建议结合连续到岗趋势重点关注。', '连续迟到样本通常需要部门提醒。', 'TRUE_POSITIVE', '建议保留连续迟到预警策略。', '2026-04-09 10:00:00'),
-(6042, 3046, 9001, 'CONFIRMED', '确认外勤轨迹异常，已完成处理', 'AI 建议优先核对同日轨迹与设备日志。', '市场部外勤类高风险异常多数需人工确认。', 'TRUE_POSITIVE', '建议继续强化多地点异常规则。', '2026-04-08 09:10:00'),
+(6042, 3046, 9001, 'CONFIRMED', '确认外勤轨迹异常，已完成处理', 'AI 建议优先核对同日轨迹与电脑设备信息。', '市场部外勤类高风险异常多数需人工确认。', 'TRUE_POSITIVE', '建议继续强化多地点异常规则。', '2026-04-08 09:10:00'),
 (6043, 3048, 9001, 'FALSE_POSITIVE', '经核实存在提前离岗审批，已结案', 'AI 建议核对审批后快速闭环。', '法务部门同类样本通常审批完备。', 'FALSE_POSITIVE', '建议在审批联动场景下弱化同类预警。', '2026-04-06 18:00:00'),
-(6044, 3049, 9001, 'CONFIRMED', '确认高风险代打卡异常，已留档处理', 'AI 建议优先确认设备与人员轨迹。', '运营部门同类外部设备样本确认率较高。', 'TRUE_POSITIVE', '建议持续保留高风险代打卡策略。', '2026-04-09 09:18:00');
+(6044, 3049, 9001, 'CONFIRMED', '确认高风险代打卡异常，已留档处理', 'AI 建议优先确认电脑设备与人员轨迹。', '运营部门同类外部电脑设备样本确认率较高。', 'TRUE_POSITIVE', '建议持续保留高风险代打卡策略。', '2026-04-09 09:18:00');

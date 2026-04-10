@@ -214,19 +214,9 @@ class StatisticsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.periodType").value("DAY"))
-                .andExpect(jsonPath("$.data.summary", allOf(
-                        containsString("打卡7条"),
-                        containsString("异常4条"),
-                        containsString("智能分析4条")
-                )))
-                .andExpect(jsonPath("$.data.highlightRisks", allOf(
-                        containsString("高风险异常2条"),
-                        containsString("未闭环异常2条")
-                )))
-                .andExpect(jsonPath("$.data.manageSuggestion", allOf(
-                        containsString("复核"),
-                        containsString("预警")
-                )));
+                .andExpect(jsonPath("$.data.summary").value("王五疑似跨部门异常打卡"))
+                .andExpect(jsonPath("$.data.highlightRisks").value("疑似跨部门异常打卡"))
+                .andExpect(jsonPath("$.data.manageSuggestion").value("建议部门负责人提醒"));
     }
 
     @Test
@@ -240,15 +230,9 @@ class StatisticsControllerTest {
                         .header("Authorization", "Bearer " + employeeToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.summary", allOf(
-                        containsString("打卡3条"),
-                        containsString("异常2条"),
-                        containsString("智能分析2条")
-                )))
-                .andExpect(jsonPath("$.data.highlightRisks", allOf(
-                        containsString("高风险异常1条"),
-                        containsString("未闭环异常1条")
-                )));
+                .andExpect(jsonPath("$.data.summary").value("张三疑似代打卡"))
+                .andExpect(jsonPath("$.data.highlightRisks").value("疑似代打卡"))
+                .andExpect(jsonPath("$.data.manageSuggestion").value("建议优先人工复核"));
     }
 
     @Test
@@ -265,14 +249,8 @@ class StatisticsControllerTest {
                 .andExpect(jsonPath("$.data.deptId").value(1))
                 .andExpect(jsonPath("$.data.deptName").value("技术部"))
                 .andExpect(jsonPath("$.data.riskScore", greaterThan(0.0)))
-                .andExpect(jsonPath("$.data.riskSummary", allOf(
-                        containsString("技术部"),
-                        containsString("高风险")
-                )))
-                .andExpect(jsonPath("$.data.manageSuggestion", allOf(
-                        containsString("复核"),
-                        containsString("高风险")
-                )));
+                .andExpect(jsonPath("$.data.riskSummary").value("超过上班时间阈值，判定为迟到"))
+                .andExpect(jsonPath("$.data.manageSuggestion").value("建议部门负责人提醒"));
     }
 
     @Test
@@ -288,10 +266,11 @@ class StatisticsControllerTest {
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].deptId").value(2))
                 .andExpect(jsonPath("$.data[0].deptName").value("行政部"))
-                .andExpect(jsonPath("$.data[0].riskSummary", containsString("行政部")))
+                .andExpect(jsonPath("$.data[0].riskSummary").value("疑似跨部门异常打卡"))
+                .andExpect(jsonPath("$.data[0].manageSuggestion").value("建议核验现场情况"))
                 .andExpect(jsonPath("$.data[1].deptId").value(1))
                 .andExpect(jsonPath("$.data[1].deptName").value("技术部"))
-                .andExpect(jsonPath("$.data[1].riskSummary", containsString("技术部")));
+                .andExpect(jsonPath("$.data[1].riskSummary").value("超过上班时间阈值，判定为迟到"));
     }
 
     @Test

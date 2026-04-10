@@ -26,6 +26,9 @@ public class AttendanceRecord {
     @TableField("deviceId")
     private String deviceId;
 
+    @TableField("deviceInfo")
+    private String deviceInfo;
+
     @TableField("ipAddr")
     private String ipAddr;
 
@@ -89,6 +92,14 @@ public class AttendanceRecord {
 
     public void setIpAddr(String ipAddr) {
         this.ipAddr = ipAddr;
+    }
+
+    public String getDeviceInfo() {
+        return deviceInfo;
+    }
+
+    public void setDeviceInfo(String deviceInfo) {
+        this.deviceInfo = deviceInfo;
     }
 
     public String getLocation() {

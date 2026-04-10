@@ -95,6 +95,7 @@ CREATE TABLE `attendanceRecord` (
   `checkTime` DATETIME NOT NULL COMMENT '打卡时间',
   `checkType` VARCHAR(20) NOT NULL COMMENT '打卡类型',
   `deviceId` VARCHAR(64) NOT NULL COMMENT '设备ID',
+  `deviceInfo` VARCHAR(128) DEFAULT NULL COMMENT '电脑设备信息',
   `ipAddr` VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',
   `location` VARCHAR(255) DEFAULT NULL COMMENT '打卡地点',
   `longitude` DECIMAL(10,6) DEFAULT NULL COMMENT '打卡经度快照',

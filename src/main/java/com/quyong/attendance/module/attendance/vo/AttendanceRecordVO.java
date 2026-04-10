@@ -11,6 +11,7 @@ public class AttendanceRecordVO {
     private LocalDateTime checkTime;
     private String checkType;
     private String deviceId;
+    private String deviceInfo;
     private String location;
     private BigDecimal faceScore;
     private String status;
@@ -70,6 +71,14 @@ public class AttendanceRecordVO {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public String getDeviceInfo() {
+        return deviceInfo;
+    }
+
+    public void setDeviceInfo(String deviceInfo) {
+        this.deviceInfo = deviceInfo;
     }
 
     public BigDecimal getFaceScore() {

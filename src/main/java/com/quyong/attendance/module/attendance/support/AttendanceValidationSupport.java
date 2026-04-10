@@ -29,7 +29,8 @@ public class AttendanceValidationSupport {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "用户编号不能为空");
         }
         target.setCheckType(requireCheckType(target.getCheckType()));
-        target.setDeviceId(requireText(target.getDeviceId(), "设备编号不能为空"));
+        target.setDeviceId(requireText(target.getDeviceId(), "打卡地点不能为空"));
+        target.setDeviceInfo(normalize(target.getDeviceInfo()));
         target.setIpAddr(normalize(target.getIpAddr()));
         target.setLocation(normalize(target.getLocation()));
         target.setImageData(requireText(target.getImageData(), "人脸图像不能为空"));

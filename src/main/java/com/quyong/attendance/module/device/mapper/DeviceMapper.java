@@ -11,4 +11,7 @@ public interface DeviceMapper extends BaseMapper<Device> {
 
     @Select("SELECT COUNT(*) FROM attendanceRecord WHERE deviceId = #{deviceId}")
     long countAttendanceRecordByDeviceId(@Param("deviceId") String deviceId);
+
+    @Select("SELECT COUNT(*) FROM attendanceRecord WHERE location = #{location}")
+    long countAttendanceRecordByLocation(@Param("location") String location);
 }

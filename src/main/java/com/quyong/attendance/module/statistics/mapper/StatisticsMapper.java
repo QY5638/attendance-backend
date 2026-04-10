@@ -354,4 +354,74 @@ public interface StatisticsMapper {
                               @Param("deptId") Long deptId,
                               @Param("startTime") LocalDateTime startTime,
                               @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "<script>",
+            "SELECT COALESCE(NULLIF(wr.aiSummary, ''), NULLIF(ea.reasonSummary, ''), NULLIF(ea.inputSummary, ''), NULLIF(ae.description, ''))",
+            "FROM attendanceRecord ar",
+            "INNER JOIN attendanceException ae ON ae.recordId = ar.id",
+            "LEFT JOIN exceptionAnalysis ea ON ea.exceptionId = ae.id",
+            "LEFT JOIN warningRecord wr ON wr.exceptionId = ae.id",
+            "LEFT JOIN `user` u ON ar.userId = u.id",
+            "WHERE 1 = 1",
+            "<if test='userId != null'> AND ar.userId = #{userId}</if>",
+            "<if test='deptId != null'> AND u.deptId = #{deptId}</if>",
+            "<if test='startTime != null'> AND ar.checkTime &gt;= #{startTime}</if>",
+            "<if test='endTime != null'> AND ar.checkTime &lt;= #{endTime}</if>",
+            "AND (NULLIF(wr.aiSummary, '') IS NOT NULL OR NULLIF(ea.reasonSummary, '') IS NOT NULL OR NULLIF(ea.inputSummary, '') IS NOT NULL OR NULLIF(ae.description, '') IS NOT NULL)",
+            "ORDER BY COALESCE(wr.sendTime, ea.createTime, ae.createTime) DESC, ae.id DESC",
+            "LIMIT 1",
+            "</script>"
+    })
+    String selectLatestSummaryText(@Param("userId") Long userId,
+                                   @Param("deptId") Long deptId,
+                                   @Param("startTime") LocalDateTime startTime,
+                                   @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "<script>",
+            "SELECT COALESCE(NULLIF(ae.description, ''), NULLIF(ea.reasonSummary, ''), NULLIF(wr.aiSummary, ''))",
+            "FROM attendanceRecord ar",
+            "INNER JOIN attendanceException ae ON ae.recordId = ar.id",
+            "LEFT JOIN exceptionAnalysis ea ON ea.exceptionId = ae.id",
+            "LEFT JOIN warningRecord wr ON wr.exceptionId = ae.id",
+            "LEFT JOIN `user` u ON ar.userId = u.id",
+            "WHERE 1 = 1",
+            "<if test='userId != null'> AND ar.userId = #{userId}</if>",
+            "<if test='deptId != null'> AND u.deptId = #{deptId}</if>",
+            "<if test='startTime != null'> AND ar.checkTime &gt;= #{startTime}</if>",
+            "<if test='endTime != null'> AND ar.checkTime &lt;= #{endTime}</if>",
+            "AND (NULLIF(ae.description, '') IS NOT NULL OR NULLIF(ea.reasonSummary, '') IS NOT NULL OR NULLIF(wr.aiSummary, '') IS NOT NULL)",
+            "ORDER BY COALESCE(wr.sendTime, ea.createTime, ae.createTime) DESC, ae.id DESC",
+            "LIMIT 1",
+            "</script>"
+    })
+    String selectLatestHighlightText(@Param("userId") Long userId,
+                                     @Param("deptId") Long deptId,
+                                     @Param("startTime") LocalDateTime startTime,
+                                     @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "<script>",
+            "SELECT COALESCE(NULLIF(rr.aiReviewSuggestion, ''), NULLIF(wr.disposeSuggestion, ''), NULLIF(ea.actionSuggestion, ''), NULLIF(ea.suggestion, ''))",
+            "FROM attendanceRecord ar",
+            "INNER JOIN attendanceException ae ON ae.recordId = ar.id",
+            "LEFT JOIN exceptionAnalysis ea ON ea.exceptionId = ae.id",
+            "LEFT JOIN warningRecord wr ON wr.exceptionId = ae.id",
+            "LEFT JOIN reviewRecord rr ON rr.exceptionId = ae.id",
+            "LEFT JOIN `user` u ON ar.userId = u.id",
+            "WHERE 1 = 1",
+            "<if test='userId != null'> AND ar.userId = #{userId}</if>",
+            "<if test='deptId != null'> AND u.deptId = #{deptId}</if>",
+            "<if test='startTime != null'> AND ar.checkTime &gt;= #{startTime}</if>",
+            "<if test='endTime != null'> AND ar.checkTime &lt;= #{endTime}</if>",
+            "AND (NULLIF(rr.aiReviewSuggestion, '') IS NOT NULL OR NULLIF(wr.disposeSuggestion, '') IS NOT NULL OR NULLIF(ea.actionSuggestion, '') IS NOT NULL OR NULLIF(ea.suggestion, '') IS NOT NULL)",
+            "ORDER BY COALESCE(rr.reviewTime, wr.sendTime, ea.createTime, ae.createTime) DESC, ae.id DESC",
+            "LIMIT 1",
+            "</script>"
+    })
+    String selectLatestManageSuggestionText(@Param("userId") Long userId,
+                                            @Param("deptId") Long deptId,
+                                            @Param("startTime") LocalDateTime startTime,
+                                            @Param("endTime") LocalDateTime endTime);
 }

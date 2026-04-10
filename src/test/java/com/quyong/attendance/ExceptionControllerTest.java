@@ -170,7 +170,7 @@ class ExceptionControllerTest {
                 .andExpect(jsonPath("$.data.riskLevel").value("HIGH"))
                 .andExpect(jsonPath("$.data.sourceType").value("MODEL"))
                 .andExpect(jsonPath("$.data.modelConclusion").value("PROXY_CHECKIN"))
-                .andExpect(jsonPath("$.data.reasonSummary").value("设备与地点异常共同提升风险"))
+                .andExpect(jsonPath("$.data.reasonSummary").value("电脑设备与地点异常共同提升风险"))
                 .andExpect(jsonPath("$.data.actionSuggestion").value("建议优先人工复核"))
                 .andExpect(jsonPath("$.data.confidenceScore").value(92.5))
                 .andReturn();
@@ -223,7 +223,7 @@ class ExceptionControllerTest {
     @Test
     void shouldRecordPromptTemplateContextInModelCallLogWhenComplexCheckSucceeds() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
-        String promptContent = "请重点关注设备跳变并输出结构化结论";
+        String promptContent = "请重点关注电脑设备变化并输出结构化结论";
         String promptFingerprint = DigestUtils.md5DigestAsHex(promptContent.getBytes(StandardCharsets.UTF_8));
         insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
         insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v2.1", promptContent, "ENABLED", "模板已更新");
@@ -608,10 +608,10 @@ class ExceptionControllerTest {
         response.setConclusion("PROXY_CHECKIN");
         response.setRiskLevel("HIGH");
         response.setConfidenceScore(new BigDecimal("92.50"));
-        response.setDecisionReason("设备异常、地点异常且行为模式偏离历史规律");
-        response.setReasonSummary("设备与地点异常共同提升风险");
+        response.setDecisionReason("电脑设备异常、地点异常且行为模式偏离历史规律");
+        response.setReasonSummary("电脑设备与地点异常共同提升风险");
         response.setActionSuggestion("建议优先人工复核");
-        response.setSimilarCaseSummary("存在相似设备异常与低分值组合案例");
+        response.setSimilarCaseSummary("存在相似电脑设备异常与低分值组合案例");
         response.setRawResponse("{\"conclusion\":\"PROXY_CHECKIN\"}");
         return response;
     }

@@ -5,6 +5,7 @@ public class AttendanceCheckinDTO {
     private Long userId;
     private String checkType;
     private String deviceId;
+    private String deviceInfo;
     private String ipAddr;
     private String location;
     private String imageData;
@@ -31,6 +32,14 @@ public class AttendanceCheckinDTO {
 
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+
+    public String getDeviceInfo() {
+        return deviceInfo;
+    }
+
+    public void setDeviceInfo(String deviceInfo) {
+        this.deviceInfo = deviceInfo;
     }
 
     public String getIpAddr() {

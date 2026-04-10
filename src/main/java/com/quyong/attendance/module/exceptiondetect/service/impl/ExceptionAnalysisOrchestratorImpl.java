@@ -562,20 +562,21 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private String buildInputSummary(AttendanceRecord record, RiskFeaturesDTO riskFeatures) {
         long historyAbnormalCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
                 .eq(AttendanceException::getUserId, record.getUserId()));
-        return "recordId=" + record.getId()
-                + ", userId=" + record.getUserId()
-                + ", checkType=" + record.getCheckType()
-                + ", checkTime=" + record.getCheckTime()
-                + ", deviceId=" + record.getDeviceId()
-                + ", location=" + record.getLocation()
-                + ", longitude=" + record.getLongitude()
-                + ", latitude=" + record.getLatitude()
-                + ", faceScore=" + record.getFaceScore()
-                + ", clientFaceScore=" + (riskFeatures == null ? null : riskFeatures.getFaceScore())
-                + ", clientDeviceChanged=" + (riskFeatures == null ? null : riskFeatures.getDeviceChanged())
-                + ", clientLocationChanged=" + (riskFeatures == null ? null : riskFeatures.getLocationChanged())
-                + ", clientHistoryAbnormalCount=" + (riskFeatures == null ? null : riskFeatures.getHistoryAbnormalCount())
-                + ", actualHistoryAbnormalCount=" + historyAbnormalCount;
+        return "记录编号：" + record.getId()
+                + "；员工编号：" + record.getUserId()
+                + "；打卡类型：" + formatCheckType(record.getCheckType())
+                + "；打卡时间：" + record.getCheckTime()
+                + "；打卡地点编号：" + safeText(record.getDeviceId())
+                + "；打卡地点：" + safeText(record.getLocation())
+                + "；地点经度：" + safeText(record.getLongitude())
+                + "；地点纬度：" + safeText(record.getLatitude())
+                + "；服务端人脸分数：" + safeText(record.getFaceScore())
+                + "；客户端人脸分数：" + safeText(riskFeatures == null ? null : riskFeatures.getFaceScore())
+                + "；客户端电脑设备是否变化：" + formatBoolean(riskFeatures == null ? null : riskFeatures.getDeviceChanged())
+                + "；客户端打卡地点是否变化：" + formatBoolean(riskFeatures == null ? null : riskFeatures.getLocationChanged())
+                + "；客户端历史异常次数：" + safeText(riskFeatures == null ? null : riskFeatures.getHistoryAbnormalCount())
+                + "；数据库历史异常次数：" + historyAbnormalCount
+                + "。请所有说明使用自然中文，不要输出英文键名、技术字段名或程序变量名。";
     }
 
     private String enrichPromptContext(String inputSummary, PromptTemplate promptTemplate) {
@@ -583,8 +584,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 ? "unknown"
                 : promptTemplate.getVersion().trim();
         return inputSummary
-                + ", promptVersion=" + promptVersion
-                + ", promptFingerprint=" + digestPromptContent(promptTemplate == null ? null : promptTemplate.getContent());
+                + "；提示词版本：" + promptVersion
+                + "；提示词指纹：" + digestPromptContent(promptTemplate == null ? null : promptTemplate.getContent());
     }
 
     private String enrichLogInputSummary(String inputSummary) {
@@ -592,7 +593,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         if (!StringUtils.hasText(provider)) {
             return inputSummary;
         }
-        return inputSummary + ", llmProvider=" + provider.trim();
+        return inputSummary + "；模型提供方：" + provider.trim();
     }
 
     private String digestPromptContent(String promptContent) {
@@ -623,13 +624,34 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     }
 
     private String buildRuleFeatureSummary(AttendanceRecord record, RiskFeaturesDTO riskFeatures) {
-        return "deviceId=" + record.getDeviceId()
-                + ", location=" + record.getLocation()
-                + ", longitude=" + record.getLongitude()
-                + ", latitude=" + record.getLatitude()
-                + ", faceScore=" + record.getFaceScore()
-                + ", clientDeviceChanged=" + (riskFeatures == null ? null : riskFeatures.getDeviceChanged())
-                + ", clientLocationChanged=" + (riskFeatures == null ? null : riskFeatures.getLocationChanged());
+        return "打卡地点编号：" + safeText(record.getDeviceId())
+                + "；打卡地点：" + safeText(record.getLocation())
+                + "；地点经度：" + safeText(record.getLongitude())
+                + "；地点纬度：" + safeText(record.getLatitude())
+                + "；服务端人脸分数：" + safeText(record.getFaceScore())
+                + "；客户端电脑设备是否变化：" + formatBoolean(riskFeatures == null ? null : riskFeatures.getDeviceChanged())
+                + "；客户端打卡地点是否变化：" + formatBoolean(riskFeatures == null ? null : riskFeatures.getLocationChanged());
+    }
+
+    private String formatCheckType(String checkType) {
+        if ("OUT".equals(checkType)) {
+            return "下班打卡";
+        }
+        if ("IN".equals(checkType)) {
+            return "上班打卡";
+        }
+        return safeText(checkType);
+    }
+
+    private String formatBoolean(Boolean value) {
+        if (value == null) {
+            return "未提供";
+        }
+        return Boolean.TRUE.equals(value) ? "是" : "否";
+    }
+
+    private String safeText(Object value) {
+        return value == null ? "未提供" : String.valueOf(value);
     }
 
     private ExceptionDecisionVO toFallbackDecisionVO(AttendanceException attendanceException, ExceptionAnalysis analysis) {
