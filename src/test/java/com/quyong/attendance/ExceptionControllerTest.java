@@ -311,6 +311,40 @@ class ExceptionControllerTest {
     }
 
     @Test
+    void shouldTrimLongModelFieldsDuringComplexCheck() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请基于输入摘要输出结构化分析结果", "ENABLED", "默认模板");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockLongResponse());
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/exception/complex-check")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"recordId\":2006,\"userId\":1002,\"riskFeatures\":{\"faceScore\":81.2,\"deviceChanged\":true,\"locationChanged\":true,\"historyAbnormalCount\":2}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.sourceType").value("MODEL"))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
+        long exceptionId = response.path("data").path("exceptionId").asLong();
+
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE id = ?",
+                String.class,
+                exceptionId
+        );
+        String suggestion = jdbcTemplate.queryForObject(
+                "SELECT actionSuggestion FROM exceptionAnalysis WHERE exceptionId = ?",
+                String.class,
+                exceptionId
+        );
+
+        org.junit.jupiter.api.Assertions.assertTrue(description.length() <= 255);
+        org.junit.jupiter.api.Assertions.assertTrue(suggestion.length() <= 255);
+    }
+
+    @Test
     void shouldReturnExceptionList() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2004L, 1002L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
@@ -580,6 +614,21 @@ class ExceptionControllerTest {
         response.setSimilarCaseSummary("存在相似设备异常与低分值组合案例");
         response.setRawResponse("{\"conclusion\":\"PROXY_CHECKIN\"}");
         return response;
+    }
+
+    private ModelInvokeResponse mockLongResponse() {
+        ModelInvokeResponse response = mockResponse();
+        response.setDecisionReason(repeatText("超长判定依据", 40));
+        response.setActionSuggestion(repeatText("超长处理建议", 40));
+        return response;
+    }
+
+    private String repeatText(String text, int times) {
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < times; index++) {
+            builder.append(text);
+        }
+        return builder.toString();
     }
 
     private String loginAndExtractToken(String username, String password) throws Exception {

@@ -10,7 +10,10 @@ import com.quyong.attendance.module.statistics.vo.DepartmentRiskBriefVO;
 import com.quyong.attendance.module.statistics.vo.DepartmentStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.ExceptionTrendVO;
 import com.quyong.attendance.module.statistics.vo.PersonalStatisticsVO;
+import com.quyong.attendance.module.statistics.vo.StatisticsExportFileVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsSummaryVO;
+
+import java.util.List;
 
 public interface StatisticsService {
 
@@ -24,5 +27,7 @@ public interface StatisticsService {
 
     DepartmentRiskBriefVO departmentRiskBrief(DepartmentRiskBriefQueryDTO dto);
 
-    String export(StatisticsExportQueryDTO dto);
+    List<DepartmentRiskBriefVO> departmentRiskOverview(DepartmentStatisticsQueryDTO dto);
+
+    StatisticsExportFileVO export(StatisticsExportQueryDTO dto);
 }

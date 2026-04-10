@@ -223,10 +223,10 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             AttendanceException attendanceException = new AttendanceException();
             attendanceException.setRecordId(record.getId());
             attendanceException.setUserId(record.getUserId());
-            attendanceException.setType(response.getConclusion());
-            attendanceException.setRiskLevel(response.getRiskLevel());
+            attendanceException.setType(limitText(response.getConclusion(), 50));
+            attendanceException.setRiskLevel(limitText(response.getRiskLevel(), 20));
             attendanceException.setSourceType("MODEL");
-            attendanceException.setDescription(response.getDecisionReason());
+            attendanceException.setDescription(limitText(response.getDecisionReason(), 255));
             attendanceException.setProcessStatus(PENDING_STATUS);
             attendanceExceptionMapper.insert(attendanceException);
 
@@ -235,14 +235,14 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             analysis.setPromptTemplateId(promptTemplate.getId());
             analysis.setInputSummary(inputSummary);
             analysis.setModelResult(response.getRawResponse());
-            analysis.setModelConclusion(response.getConclusion());
+            analysis.setModelConclusion(limitText(response.getConclusion(), 100));
             analysis.setConfidenceScore(response.getConfidenceScore());
             analysis.setDecisionReason(response.getDecisionReason());
-            analysis.setSuggestion(response.getActionSuggestion());
+            analysis.setSuggestion(limitText(response.getActionSuggestion(), 255));
             analysis.setReasonSummary(response.getReasonSummary());
-            analysis.setActionSuggestion(response.getActionSuggestion());
+            analysis.setActionSuggestion(limitText(response.getActionSuggestion(), 255));
             analysis.setSimilarCaseSummary(response.getSimilarCaseSummary());
-            analysis.setPromptVersion(promptTemplate.getVersion());
+            analysis.setPromptVersion(limitText(promptTemplate.getVersion(), 50));
             exceptionAnalysisMapper.insert(analysis);
 
             modelCallLogService.logSuccess(
@@ -598,6 +598,17 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private String digestPromptContent(String promptContent) {
         String normalizedContent = promptContent == null ? "" : promptContent;
         return DigestUtils.md5DigestAsHex(normalizedContent.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String limitText(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        String normalizedValue = value.trim();
+        if (normalizedValue.length() <= maxLength) {
+            return normalizedValue;
+        }
+        return normalizedValue.substring(0, maxLength);
     }
 
     private ModelInvokeRequest buildModelRequest(AttendanceRecord record, PromptTemplate promptTemplate, String inputSummary) {

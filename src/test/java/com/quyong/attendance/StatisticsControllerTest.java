@@ -2,6 +2,8 @@ package com.quyong.attendance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +16,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
@@ -272,26 +276,54 @@ class StatisticsControllerTest {
     }
 
     @Test
+    void shouldReturnDepartmentRiskOverview() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/statistics/department-risk-overview")
+                        .param("startDate", "2026-03-25")
+                        .param("endDate", "2026-03-26")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].deptId").value(2))
+                .andExpect(jsonPath("$.data[0].deptName").value("行政部"))
+                .andExpect(jsonPath("$.data[0].riskSummary", containsString("行政部")))
+                .andExpect(jsonPath("$.data[1].deptId").value(1))
+                .andExpect(jsonPath("$.data[1].deptName").value("技术部"))
+                .andExpect(jsonPath("$.data[1].riskSummary", containsString("技术部")));
+    }
+
+    @Test
     void shouldExportStatistics() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
 
-        mockMvc.perform(get("/api/statistics/export")
+        MvcResult result = mockMvc.perform(get("/api/statistics/export")
                         .param("exportType", "DEPARTMENT")
                         .param("startDate", "2026-03-25")
                         .param("endDate", "2026-03-26")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", allOf(
-                        containsString("text/csv"),
-                        containsString("charset=UTF-8")
+                        containsString("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 )))
-                .andExpect(header().string("Content-Disposition", "attachment; filename=statistics-export.csv"))
-                .andExpect(content().string(allOf(
-                        containsString("deptId,deptName,recordCount,exceptionCount,analysisCount,warningCount,reviewCount,closedLoopCount"),
-                        containsString(",全部部门,7,4,4,4,2,2"),
-                        containsString("recordCount"),
-                        containsString("exceptionCount")
-                )));
+                .andExpect(header().string("Content-Disposition", allOf(
+                        containsString("statistics-export.xlsx"),
+                        containsString("filename*=UTF-8''")
+                )))
+                .andReturn();
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            assertEquals("部门统计报表", workbook.getSheetAt(0).getSheetName());
+            assertEquals("部门统计报表", workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
+            assertEquals("统计周期", workbook.getSheetAt(0).getRow(2).getCell(0).getStringCellValue());
+            assertEquals("汇总概况", workbook.getSheetAt(0).getRow(4).getCell(0).getStringCellValue());
+            assertEquals("全部部门", workbook.getSheetAt(0).getRow(6).getCell(0).getStringCellValue());
+            assertEquals("部门明细", workbook.getSheetAt(0).getRow(8).getCell(0).getStringCellValue());
+            assertEquals("异常率", workbook.getSheetAt(0).getRow(9).getCell(9).getStringCellValue());
+            assertEquals("技术部", workbook.getSheetAt(0).getRow(10).getCell(2).getStringCellValue());
+            assertEquals("行政部", workbook.getSheetAt(0).getRow(11).getCell(2).getStringCellValue());
+        }
     }
 
     @Test
