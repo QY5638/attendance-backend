@@ -38,6 +38,7 @@ public class DeviceValidationSupport {
         target.setName(name);
         target.setLocation(normalize(target.getLocation()));
         target.setDescription(normalize(target.getDescription()));
+        target.setRadiusMeters(resolveRadiusMeters(target.getRadiusMeters()));
         target.setStatus(resolveStatus(target.getStatus()));
         return target;
     }
@@ -61,6 +62,7 @@ public class DeviceValidationSupport {
         target.setName(name);
         target.setLocation(normalize(target.getLocation()));
         target.setDescription(normalize(target.getDescription()));
+        target.setRadiusMeters(target.getRadiusMeters() == null ? existingDevice.getRadiusMeters() : resolveRadiusMeters(target.getRadiusMeters()));
         target.setStatus(target.getStatus() == null ? existingDevice.getStatus() : requireValidStatus(target.getStatus()));
         return target;
     }
@@ -103,6 +105,14 @@ public class DeviceValidationSupport {
             return 1;
         }
         return requireValidStatus(status);
+    }
+
+    private Integer resolveRadiusMeters(Integer radiusMeters) {
+        int value = radiusMeters == null ? 30 : radiusMeters.intValue();
+        if (value < 1 || value > 50) {
+          throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "打卡半径必须在1到50米之间");
+        }
+        return value;
     }
 
     private String normalize(String value) {

@@ -28,6 +28,7 @@ CREATE TABLE `device` (
   `location` VARCHAR(255) DEFAULT NULL COMMENT '设备位置',
   `longitude` DECIMAL(10,6) DEFAULT NULL COMMENT '设备经度',
   `latitude` DECIMAL(10,6) DEFAULT NULL COMMENT '设备纬度',
+  `radiusMeters` INT NOT NULL DEFAULT 30 COMMENT '打卡半径（米）',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '设备状态',
   `description` VARCHAR(255) DEFAULT NULL COMMENT '设备描述'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
@@ -94,10 +95,12 @@ CREATE TABLE `attendanceRecord` (
   `userId` BIGINT NOT NULL COMMENT '用户ID',
   `checkTime` DATETIME NOT NULL COMMENT '打卡时间',
   `checkType` VARCHAR(20) NOT NULL COMMENT '打卡类型',
-  `deviceId` VARCHAR(64) NOT NULL COMMENT '设备ID',
+  `deviceId` VARCHAR(64) NOT NULL COMMENT '打卡地点ID',
   `deviceInfo` VARCHAR(128) DEFAULT NULL COMMENT '电脑设备信息',
   `ipAddr` VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',
   `location` VARCHAR(255) DEFAULT NULL COMMENT '打卡地点',
+  `clientLongitude` DECIMAL(10,6) DEFAULT NULL COMMENT '客户端经度',
+  `clientLatitude` DECIMAL(10,6) DEFAULT NULL COMMENT '客户端纬度',
   `longitude` DECIMAL(10,6) DEFAULT NULL COMMENT '打卡经度快照',
   `latitude` DECIMAL(10,6) DEFAULT NULL COMMENT '打卡纬度快照',
   `faceScore` DECIMAL(5,2) DEFAULT NULL COMMENT '人脸相似度',

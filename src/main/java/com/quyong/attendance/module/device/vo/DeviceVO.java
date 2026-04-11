@@ -9,6 +9,7 @@ public class DeviceVO {
     private String location;
     private BigDecimal longitude;
     private BigDecimal latitude;
+    private Integer radiusMeters;
     private Integer status;
     private String description;
 
@@ -50,6 +51,14 @@ public class DeviceVO {
 
     public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
+    }
+
+    public Integer getRadiusMeters() {
+        return radiusMeters;
+    }
+
+    public void setRadiusMeters(Integer radiusMeters) {
+        this.radiusMeters = radiusMeters;
     }
 
     public Integer getStatus() {

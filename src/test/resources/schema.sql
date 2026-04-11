@@ -18,6 +18,7 @@ CREATE TABLE device (
     location VARCHAR(255),
     longitude DECIMAL(10,6),
     latitude DECIMAL(10,6),
+    radiusMeters INT NOT NULL DEFAULT 30,
     status TINYINT NOT NULL DEFAULT 1,
     description VARCHAR(255)
 );
@@ -59,6 +60,8 @@ CREATE TABLE attendanceRecord (
     deviceInfo VARCHAR(128),
     ipAddr VARCHAR(64),
     location VARCHAR(255),
+    clientLongitude DECIMAL(10,6),
+    clientLatitude DECIMAL(10,6),
     longitude DECIMAL(10,6),
     latitude DECIMAL(10,6),
     faceScore DECIMAL(5,2),

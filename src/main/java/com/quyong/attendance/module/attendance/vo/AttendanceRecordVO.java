@@ -13,6 +13,8 @@ public class AttendanceRecordVO {
     private String deviceId;
     private String deviceInfo;
     private String location;
+    private BigDecimal clientLongitude;
+    private BigDecimal clientLatitude;
     private BigDecimal faceScore;
     private String status;
     private String exceptionType;
@@ -79,6 +81,22 @@ public class AttendanceRecordVO {
 
     public void setDeviceInfo(String deviceInfo) {
         this.deviceInfo = deviceInfo;
+    }
+
+    public BigDecimal getClientLongitude() {
+        return clientLongitude;
+    }
+
+    public void setClientLongitude(BigDecimal clientLongitude) {
+        this.clientLongitude = clientLongitude;
+    }
+
+    public BigDecimal getClientLatitude() {
+        return clientLatitude;
+    }
+
+    public void setClientLatitude(BigDecimal clientLatitude) {
+        this.clientLatitude = clientLatitude;
     }
 
     public BigDecimal getFaceScore() {

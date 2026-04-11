@@ -1,5 +1,7 @@
 package com.quyong.attendance.module.device.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
+
 import java.math.BigDecimal;
 
 public class Device {
@@ -9,6 +11,9 @@ public class Device {
     private String location;
     private BigDecimal longitude;
     private BigDecimal latitude;
+
+    @TableField("radiusMeters")
+    private Integer radiusMeters;
     private Integer status;
     private String description;
 
@@ -50,6 +55,14 @@ public class Device {
 
     public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
+    }
+
+    public Integer getRadiusMeters() {
+        return radiusMeters;
+    }
+
+    public void setRadiusMeters(Integer radiusMeters) {
+        this.radiusMeters = radiusMeters;
     }
 
     public Integer getStatus() {

@@ -34,6 +34,12 @@ public class AttendanceRecord {
 
     private String location;
 
+    @TableField("clientLongitude")
+    private BigDecimal clientLongitude;
+
+    @TableField("clientLatitude")
+    private BigDecimal clientLatitude;
+
     private BigDecimal longitude;
 
     private BigDecimal latitude;
@@ -108,6 +114,22 @@ public class AttendanceRecord {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public BigDecimal getClientLongitude() {
+        return clientLongitude;
+    }
+
+    public void setClientLongitude(BigDecimal clientLongitude) {
+        this.clientLongitude = clientLongitude;
+    }
+
+    public BigDecimal getClientLatitude() {
+        return clientLatitude;
+    }
+
+    public void setClientLatitude(BigDecimal clientLatitude) {
+        this.clientLatitude = clientLatitude;
     }
 
     public BigDecimal getLongitude() {

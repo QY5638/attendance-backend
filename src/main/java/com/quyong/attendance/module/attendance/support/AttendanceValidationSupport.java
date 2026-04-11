@@ -33,6 +33,9 @@ public class AttendanceValidationSupport {
         target.setDeviceInfo(normalize(target.getDeviceInfo()));
         target.setIpAddr(normalize(target.getIpAddr()));
         target.setLocation(normalize(target.getLocation()));
+        if (target.getClientLongitude() == null || target.getClientLatitude() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "未获取当前位置，请允许浏览器定位后重试");
+        }
         target.setImageData(requireText(target.getImageData(), "人脸图像不能为空"));
         return target;
     }

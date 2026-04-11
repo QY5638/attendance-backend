@@ -1,5 +1,7 @@
 package com.quyong.attendance.module.attendance.dto;
 
+import java.math.BigDecimal;
+
 public class AttendanceCheckinDTO {
 
     private Long userId;
@@ -8,6 +10,8 @@ public class AttendanceCheckinDTO {
     private String deviceInfo;
     private String ipAddr;
     private String location;
+    private BigDecimal clientLongitude;
+    private BigDecimal clientLatitude;
     private String imageData;
 
     public Long getUserId() {
@@ -56,6 +60,22 @@ public class AttendanceCheckinDTO {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public BigDecimal getClientLongitude() {
+        return clientLongitude;
+    }
+
+    public void setClientLongitude(BigDecimal clientLongitude) {
+        this.clientLongitude = clientLongitude;
+    }
+
+    public BigDecimal getClientLatitude() {
+        return clientLatitude;
+    }
+
+    public void setClientLatitude(BigDecimal clientLatitude) {
+        this.clientLatitude = clientLatitude;
     }
 
     public String getImageData() {

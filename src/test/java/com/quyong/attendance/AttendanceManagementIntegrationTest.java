@@ -149,7 +149,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-checkin-success\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-checkin-success\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -208,7 +208,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-not-registered\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-not-registered\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("该用户未录入人脸"));
@@ -222,7 +222,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-other\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-other\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("人脸验证未通过"));
@@ -236,7 +236,7 @@ class AttendanceManagementIntegrationTest {
         mockMvc.perform(post("/api/attendance/checkin")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-002\",\"imageData\":\"face-image-disabled-device\"}"))
+                        .content("{\"userId\":1001,\"checkType\":\"IN\",\"deviceId\":\"DEV-002\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-disabled-device\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("打卡地点已停用，不能打卡"));
@@ -254,7 +254,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-for-zhangsan\"}"))
+                        .content("{\"userId\":1002,\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-for-zhangsan\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
@@ -288,7 +288,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-late-auto\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-late-auto\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
@@ -322,7 +322,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-model-auto\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-model-auto\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
@@ -359,7 +359,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"imageData\":\"face-image-no-template\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-no-template\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("NORMAL"));
@@ -412,7 +412,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-009\",\"imageData\":\"face-image-cross-site\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-009\",\"clientLongitude\":121.473700,\"clientLatitude\":31.230400,\"imageData\":\"face-image-cross-site\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
@@ -499,7 +499,7 @@ class AttendanceManagementIntegrationTest {
                         })
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
-                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-010\",\"imageData\":\"face-image-long-location\"}"))
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-010\",\"clientLongitude\":121.473701,\"clientLatitude\":31.230416,\"imageData\":\"face-image-long-location\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
@@ -786,10 +786,13 @@ class AttendanceManagementIntegrationTest {
 
     private void insertDevice(String id, String name, String location, int status, String description) {
         jdbcTemplate.update(
-                "INSERT INTO device (id, name, location, status, description) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO device (id, name, location, longitude, latitude, radiusMeters, status, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 id,
                 name,
                 location,
+                (location != null && (location.contains("上海") || location.contains("外部"))) ? new BigDecimal("121.473701") : new BigDecimal("116.397128"),
+                (location != null && (location.contains("上海") || location.contains("外部"))) ? new BigDecimal("31.230416") : new BigDecimal("39.916527"),
+                30,
                 status,
                 description
         );

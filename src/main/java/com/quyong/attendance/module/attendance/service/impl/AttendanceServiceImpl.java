@@ -30,6 +30,7 @@ import com.quyong.attendance.module.exceptiondetect.vo.ExceptionDecisionVO;
 import com.quyong.attendance.module.face.dto.FaceVerifyDTO;
 import com.quyong.attendance.module.face.service.FaceService;
 import com.quyong.attendance.module.face.vo.FaceVerifyVO;
+import com.quyong.attendance.module.map.service.MapDistanceService;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
@@ -64,6 +65,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceExceptionMapper attendanceExceptionMapper;
     private final ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator;
     private final WarningService warningService;
+    private final MapDistanceService mapDistanceService;
     private final Clock clock;
 
     public AttendanceServiceImpl(AttendanceRecordMapper attendanceRecordMapper,
@@ -76,6 +78,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                                  AttendanceExceptionMapper attendanceExceptionMapper,
                                  ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator,
                                  WarningService warningService,
+                                 MapDistanceService mapDistanceService,
                                  Clock clock) {
         this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceRepairMapper = attendanceRepairMapper;
@@ -87,6 +90,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisOrchestrator = exceptionAnalysisOrchestrator;
         this.warningService = warningService;
+        this.mapDistanceService = mapDistanceService;
         this.clock = clock;
     }
 
@@ -103,6 +107,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (device.getStatus() == null || device.getStatus() != 1) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "打卡地点已停用，不能打卡");
         }
+        validatePunchRange(device, validatedDTO);
 
         FaceVerifyDTO faceVerifyDTO = new FaceVerifyDTO();
         faceVerifyDTO.setUserId(validatedDTO.getUserId());
@@ -120,6 +125,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendanceRecord.setDeviceInfo(resolveComputerDeviceInfo(validatedDTO));
         attendanceRecord.setIpAddr(validatedDTO.getIpAddr());
         attendanceRecord.setLocation(resolvePunchLocation(device));
+        attendanceRecord.setClientLongitude(validatedDTO.getClientLongitude());
+        attendanceRecord.setClientLatitude(validatedDTO.getClientLatitude());
         attendanceRecord.setLongitude(device.getLongitude());
         attendanceRecord.setLatitude(device.getLatitude());
         attendanceRecord.setFaceScore(faceVerifyVO.getFaceScore());
@@ -329,6 +336,27 @@ public class AttendanceServiceImpl implements AttendanceService {
             return device.getName().trim();
         }
         return device.getId();
+    }
+
+    private void validatePunchRange(Device device, AttendanceCheckinDTO dto) {
+        if (device.getLongitude() == null || device.getLatitude() == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "当前打卡地点未完成位置设置，请联系管理员");
+        }
+
+        BigDecimal distanceMeters = mapDistanceService.calculateDistanceMeters(
+                dto.getClientLongitude(),
+                dto.getClientLatitude(),
+                device.getLongitude(),
+                device.getLatitude()
+        );
+
+        int radiusMeters = device.getRadiusMeters() == null ? 30 : device.getRadiusMeters().intValue();
+        if (distanceMeters.compareTo(BigDecimal.valueOf(radiusMeters)) > 0) {
+            throw new BusinessException(
+                    ResultCode.BAD_REQUEST.getCode(),
+                    "当前位置不在打卡地点允许范围内，请进入“" + resolvePunchLocation(device) + "”附近 " + radiusMeters + " 米范围后再打卡"
+            );
+        }
     }
 
     private String limitText(String value, int maxLength) {
