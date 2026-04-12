@@ -940,6 +940,15 @@ public class StatisticsServiceImpl implements StatisticsService {
         if ("ATTENDANCE_APPLY".equals(normalized)) {
             return "补卡申请";
         }
+        if ("FACE_REGISTER_APPLY".equals(normalized)) {
+            return "人脸重录申请";
+        }
+        if ("FACE_REGISTER_APPROVE".equals(normalized)) {
+            return "人脸重录通过";
+        }
+        if ("FACE_REGISTER_REJECT".equals(normalized)) {
+            return "人脸重录驳回";
+        }
         if ("WARNING_REEVALUATE".equals(normalized)) {
             return "预警处理";
         }

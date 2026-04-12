@@ -6,6 +6,7 @@ import com.quyong.attendance.module.face.dto.FaceVerifyDTO;
 import com.quyong.attendance.module.face.entity.FaceFeature;
 import com.quyong.attendance.module.face.mapper.FaceFeatureMapper;
 import com.quyong.attendance.module.face.service.FaceLivenessService;
+import com.quyong.attendance.module.face.service.FaceRegisterApprovalService;
 import com.quyong.attendance.module.face.service.FaceService;
 import com.quyong.attendance.module.face.support.FaceLivenessProof;
 import com.quyong.attendance.module.face.support.FaceRegistrationResult;
@@ -15,6 +16,7 @@ import com.quyong.attendance.module.face.support.FaceVerificationResult;
 import com.quyong.attendance.module.face.vo.FaceRegisterVO;
 import com.quyong.attendance.module.face.vo.FaceVerifyVO;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,22 +31,26 @@ public class FaceServiceImpl implements FaceService {
     private final FaceFeatureMapper faceFeatureMapper;
     private final FaceValidationSupport faceValidationSupport;
     private final FaceLivenessService faceLivenessService;
+    private final FaceRegisterApprovalService faceRegisterApprovalService;
     private final FaceRecognitionProvider faceRecognitionProvider;
     private final FaceEngineProperties faceEngineProperties;
 
     public FaceServiceImpl(FaceFeatureMapper faceFeatureMapper,
                            FaceValidationSupport faceValidationSupport,
                            FaceLivenessService faceLivenessService,
+                           FaceRegisterApprovalService faceRegisterApprovalService,
                            FaceRecognitionProvider faceRecognitionProvider,
                            FaceEngineProperties faceEngineProperties) {
         this.faceFeatureMapper = faceFeatureMapper;
         this.faceValidationSupport = faceValidationSupport;
         this.faceLivenessService = faceLivenessService;
+        this.faceRegisterApprovalService = faceRegisterApprovalService;
         this.faceRecognitionProvider = faceRecognitionProvider;
         this.faceEngineProperties = faceEngineProperties;
     }
 
     @Override
+    @Transactional
     public FaceRegisterVO register(FaceRegisterDTO registerDTO) {
         FaceRegisterDTO validatedRegisterDTO = faceValidationSupport.validateRegister(registerDTO);
         FaceLivenessProof livenessProof = faceLivenessService.requireValidProof(
@@ -54,6 +60,9 @@ public class FaceServiceImpl implements FaceService {
                 true
         );
         FaceFeature latestFaceFeature = faceFeatureMapper.selectLatestByUserId(validatedRegisterDTO.getUserId());
+        if (latestFaceFeature != null) {
+            faceRegisterApprovalService.requireApproved(validatedRegisterDTO.getUserId());
+        }
         FaceRegistrationResult registrationResult = faceRecognitionProvider.register(
                 validatedRegisterDTO.getUserId(),
                 validatedRegisterDTO.getImageData(),
@@ -67,6 +76,10 @@ public class FaceServiceImpl implements FaceService {
         faceFeature.setFeatureHash(generateFeatureHash(validatedRegisterDTO.getUserId(), registrationResult.getFeatureData()));
         faceFeature.setEncryptFlag(registrationResult.getEncryptFlag());
         faceFeatureMapper.insert(faceFeature);
+
+        if (latestFaceFeature != null) {
+            faceRegisterApprovalService.consumeApproved(validatedRegisterDTO.getUserId());
+        }
 
         FaceFeature savedFaceFeature = faceFeatureMapper.selectById(faceFeature.getId());
         return toRegisterVO(savedFaceFeature == null ? faceFeature : savedFaceFeature, registrationResult);

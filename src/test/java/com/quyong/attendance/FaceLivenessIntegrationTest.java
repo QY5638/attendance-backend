@@ -41,6 +41,7 @@ class FaceLivenessIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM faceRegisterApproval");
         jdbcTemplate.execute("DELETE FROM faceFeature");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
         jdbcTemplate.execute("DELETE FROM user");
@@ -50,6 +51,7 @@ class FaceLivenessIntegrationTest {
         insertRole(1L, "ADMIN", "管理员");
         insertRole(2L, "EMPLOYEE", "员工");
         insertDepartment(1L, "技术部", "负责系统研发");
+        insertUser(9001L, "admin", "系统管理员", 1L, 1L, 1);
         insertUser(1001L, "zhangsan", "张三", 1L, 2L, 1);
     }
 
@@ -150,6 +152,68 @@ class FaceLivenessIntegrationTest {
                 .andExpect(jsonPath("$.message").value("活体校验证明已失效，请重新完成挑战"));
     }
 
+    @Test
+    void shouldRequireApprovalWhenUserAlreadyHasFaceFeature() throws Exception {
+        insertFaceFeature(7001L, 1001L, "stored-feature-before");
+        String token = loginAndExtractToken("zhangsan", "123456");
+        JsonNode proof = completeLiveness(token, "face-image-approval-required");
+
+        mockMvc.perform(post("/api/face/register")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"imageData\":\"face-image-approval-required\",\"livenessToken\":\"" + proof.path("livenessToken").asText() + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403))
+                .andExpect(jsonPath("$.message").value("当前账号已录入人脸，如需重新采集，请先提交申请并等待管理员审批"));
+    }
+
+    @Test
+    void shouldAllowRegisterAfterAdminApprovesReRegisterRequest() throws Exception {
+        insertFaceFeature(7002L, 1001L, "stored-feature-before-approval");
+        String employeeToken = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/face/register-approval/apply")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reason\":\"需要重新采集人脸照片\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.registered").value(true))
+                .andExpect(jsonPath("$.data.canApply").value(false))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        Long approvalId = jdbcTemplate.queryForObject(
+                "SELECT id FROM faceRegisterApproval WHERE userId = ? ORDER BY createTime DESC LIMIT 1",
+                Long.class,
+                1001L
+        );
+
+        String adminToken = loginAndExtractToken("admin", "123456");
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/face/register-approval/review")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"id\":" + approvalId + ",\"status\":\"APPROVED\",\"reviewComment\":\"同意本次重录申请\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        JsonNode proof = completeLiveness(employeeToken, "face-image-approved");
+        mockMvc.perform(post("/api/face/register")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"imageData\":\"face-image-approved\",\"livenessToken\":\"" + proof.path("livenessToken").asText() + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.registered").value(true));
+
+        String approvalStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM faceRegisterApproval WHERE id = ?",
+                String.class,
+                approvalId
+        );
+        assertEquals("USED", approvalStatus);
+    }
+
     private JsonNode completeLiveness(String token, String imageData) throws Exception {
         MvcResult sessionResult = mockMvc.perform(post("/api/face/liveness/session")
                         .header("Authorization", "Bearer " + token)
@@ -237,6 +301,17 @@ class FaceLivenessIntegrationTest {
                 deptId,
                 roleId,
                 status
+        );
+    }
+
+    private void insertFaceFeature(Long id, Long userId, String featureData) {
+        jdbcTemplate.update(
+                "INSERT INTO faceFeature (id, userId, featureData, featureHash, encryptFlag, createTime) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                id,
+                userId,
+                featureData,
+                "hash-" + id,
+                1
         );
     }
 
