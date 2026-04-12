@@ -51,6 +51,19 @@ CREATE TABLE faceFeature (
 CREATE UNIQUE INDEX uk_face_feature_hash ON faceFeature (featureHash);
 CREATE INDEX idx_face_feature_user_time ON faceFeature (userId, createTime);
 
+CREATE TABLE faceRegisterApproval (
+    id BIGINT PRIMARY KEY,
+    userId BIGINT NOT NULL,
+    reason VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    reviewUserId BIGINT,
+    reviewComment VARCHAR(255),
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewTime TIMESTAMP,
+    CONSTRAINT fk_face_register_approval_user FOREIGN KEY (userId) REFERENCES user (id),
+    CONSTRAINT fk_face_register_approval_review_user FOREIGN KEY (reviewUserId) REFERENCES user (id)
+);
+
 CREATE TABLE attendanceRecord (
     id BIGINT PRIMARY KEY,
     userId BIGINT NOT NULL,
