@@ -297,6 +297,47 @@ class ExceptionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.reasonSummary").value("模型调用失败，已转人工复核"));
+
+        mockMvc.perform(get("/api/exception/" + exceptionId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.type").value("COMPLEX_ATTENDANCE_RISK"));
+    }
+
+    @Test
+    void shouldNormalizeFreeTextModelConclusionToComplexAttendanceRisk() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请基于输入摘要输出结构化分析结果", "ENABLED", "默认模板");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockFreeTextResponse());
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/exception/complex-check")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"recordId\":2006,\"userId\":1002,\"riskFeatures\":{\"faceScore\":81.2,\"deviceChanged\":true,\"locationChanged\":true,\"historyAbnormalCount\":2}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.type").value("COMPLEX_ATTENDANCE_RISK"))
+                .andExpect(jsonPath("$.data.modelConclusion").value("存在较高异常考勤风险，需人工复核"))
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
+        long exceptionId = response.path("data").path("exceptionId").asLong();
+
+        String storedType = jdbcTemplate.queryForObject(
+                "SELECT type FROM attendanceException WHERE id = ?",
+                String.class,
+                exceptionId
+        );
+        String finalDecision = jdbcTemplate.queryForObject(
+                "SELECT finalDecision FROM decisionTrace WHERE businessType = 'ATTENDANCE_EXCEPTION' AND businessId = ? ORDER BY id DESC LIMIT 1",
+                String.class,
+                exceptionId
+        );
+
+        assertEquals("COMPLEX_ATTENDANCE_RISK", storedType);
+        assertEquals("COMPLEX_ATTENDANCE_RISK", finalDecision);
     }
 
     @Test
@@ -637,6 +678,19 @@ class ExceptionControllerTest {
         ModelInvokeResponse response = mockResponse();
         response.setDecisionReason(repeatText("超长判定依据", 40));
         response.setActionSuggestion(repeatText("超长处理建议", 40));
+        return response;
+    }
+
+    private ModelInvokeResponse mockFreeTextResponse() {
+        ModelInvokeResponse response = new ModelInvokeResponse();
+        response.setConclusion("存在较高异常考勤风险，需人工复核");
+        response.setRiskLevel("HIGH");
+        response.setConfidenceScore(new BigDecimal("87.00"));
+        response.setDecisionReason("历史异常次数较高，且地点坐标缺失，本次打卡需要重点复核。");
+        response.setReasonSummary("历史异常次数较高，且地点坐标缺失，本次打卡需要重点复核。");
+        response.setActionSuggestion("建议管理员人工核查。 ");
+        response.setSimilarCaseSummary("存在相似高风险场景。 ");
+        response.setRawResponse("{\"conclusion\":\"存在较高异常考勤风险，需人工复核\"}");
         return response;
     }
 
