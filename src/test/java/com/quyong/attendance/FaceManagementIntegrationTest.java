@@ -48,6 +48,7 @@ class FaceManagementIntegrationTest {
         jdbcTemplate.execute("DELETE FROM exceptionAnalysis");
         jdbcTemplate.execute("DELETE FROM attendanceException");
         jdbcTemplate.execute("DELETE FROM attendanceRepair");
+        jdbcTemplate.execute("DELETE FROM faceRegisterApproval");
         jdbcTemplate.execute("DELETE FROM faceFeature");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
         jdbcTemplate.execute("DELETE FROM user");
@@ -108,18 +109,41 @@ class FaceManagementIntegrationTest {
     }
 
     @Test
-    void shouldKeepHistoryAndUseLatestFaceFeatureWhenUserRegistersAgain() throws Exception {
-        String token = loginAndExtractToken("zhangsan", "123456");
+    void shouldKeepHistoryAndUseLatestFaceFeatureAfterApprovedReRegister() throws Exception {
+        String employeeToken = loginAndExtractToken("zhangsan", "123456");
 
         mockMvc.perform(post("/api/face/register")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + employeeToken)
                         .contentType(APPLICATION_JSON)
                         .content("{\"imageData\":\"face-image-old\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
 
+        mockMvc.perform(post("/api/face/register-approval/apply")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reason\":\"需要更新当前人脸模板\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        Long approvalId = jdbcTemplate.queryForObject(
+                "SELECT id FROM faceRegisterApproval WHERE userId = ? ORDER BY createTime DESC LIMIT 1",
+                Long.class,
+                1001L
+        );
+
+        String adminToken = loginAndExtractToken("admin", "123456");
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/face/register-approval/review")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"id\":" + approvalId + ",\"status\":\"APPROVED\",\"reviewComment\":\"同意本次重录\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
         mockMvc.perform(post("/api/face/register")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + employeeToken)
                         .contentType(APPLICATION_JSON)
                         .content("{\"userId\":9001,\"imageData\":\"face-image-new\"}"))
                 .andExpect(status().isOk())
@@ -132,8 +156,15 @@ class FaceManagementIntegrationTest {
         );
         assertEquals(2, count);
 
+        String approvalStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM faceRegisterApproval WHERE id = ?",
+                String.class,
+                approvalId
+        );
+        assertEquals("USED", approvalStatus);
+
         mockMvc.perform(post("/api/face/verify")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + employeeToken)
                         .contentType(APPLICATION_JSON)
                         .content("{\"imageData\":\"face-image-old\"}"))
                 .andExpect(status().isOk())
@@ -144,7 +175,7 @@ class FaceManagementIntegrationTest {
                 .andExpect(jsonPath("$.data.message").value("人脸验证未通过"));
 
         mockMvc.perform(post("/api/face/verify")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + employeeToken)
                         .contentType(APPLICATION_JSON)
                         .content("{\"userId\":9001,\"imageData\":\"face-image-new\"}"))
                 .andExpect(status().isOk())
