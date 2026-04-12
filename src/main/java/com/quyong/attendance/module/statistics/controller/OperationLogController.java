@@ -4,6 +4,7 @@ import com.quyong.attendance.common.api.PageResult;
 import com.quyong.attendance.common.api.Result;
 import com.quyong.attendance.module.statistics.dto.OperationLogQueryDTO;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
+import com.quyong.attendance.module.statistics.vo.OperationLogSummaryVO;
 import com.quyong.attendance.module.statistics.vo.OperationLogVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,5 +23,10 @@ public class OperationLogController {
     @GetMapping("/list")
     public Result<PageResult<OperationLogVO>> list(OperationLogQueryDTO dto) {
         return Result.success(operationLogService.list(dto));
+    }
+
+    @GetMapping("/summary")
+    public Result<OperationLogSummaryVO> summary(OperationLogQueryDTO dto) {
+        return Result.success(operationLogService.summary(dto));
     }
 }

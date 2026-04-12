@@ -13,7 +13,7 @@ import java.util.List;
 @Mapper
 public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
-    @Select("SELECT id,userId,checkTime,checkType,deviceId,deviceInfo,ipAddr,location,longitude,latitude,faceScore,status,createTime FROM attendanceRecord WHERE userId = #{userId} AND (checkTime < #{checkTime} OR (checkTime = #{checkTime} AND id <> #{recordId})) ORDER BY checkTime DESC, id DESC LIMIT 1")
+    @Select("SELECT id,userId,checkTime,checkType,deviceId,deviceInfo,terminalId,ipAddr,location,clientLongitude,clientLatitude,longitude,latitude,faceScore,status,createTime FROM attendanceRecord WHERE userId = #{userId} AND (checkTime < #{checkTime} OR (checkTime = #{checkTime} AND id <> #{recordId})) ORDER BY checkTime DESC, id DESC LIMIT 1")
     AttendanceRecord selectLatestBefore(@Param("userId") Long userId,
                                         @Param("checkTime") LocalDateTime checkTime,
                                         @Param("recordId") Long recordId);
@@ -37,7 +37,7 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
     @Select({
             "<script>",
-            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.location, ar.faceScore, ar.status,",
+            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status,",
             "(SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType",
             "FROM attendanceRecord ar",
             "LEFT JOIN `user` u ON ar.userId = u.id",
@@ -77,7 +77,7 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
     @Select({
             "<script>",
-            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.location, ar.faceScore, ar.status",
+            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status",
             "FROM attendanceRecord ar",
             "LEFT JOIN `user` u ON ar.userId = u.id",
             "WHERE 1 = 1",

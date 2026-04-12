@@ -307,6 +307,218 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
+    void shouldUpgradeToContinuousLateExceptionAfterThreeRecentLateCheckins() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 9, 16, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1988L, 1001L, "2026-03-29 09:14:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1989L, 1001L, "2026-03-30 09:13:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        insertFaceFeature(1001L, "face-image-continuous-late", 1206L, "hash-continuous-late-1206");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.91");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-late\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer continuousLateCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_LATE'",
+                Integer.class,
+                1001L
+        );
+        Integer warningCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM warningRecord WHERE level = 'HIGH'",
+                Integer.class
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_LATE' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), continuousLateCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次上班打卡迟到"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousEarlyLeaveExceptionAfterThreeRecentEarlyLeaveCheckouts() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 17, 44, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1990L, 1001L, "2026-03-29 17:45:00", "OUT", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1991L, 1001L, "2026-03-30 17:46:00", "OUT", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        insertFaceFeature(1001L, "face-image-continuous-early-leave", 1207L, "hash-continuous-early-leave-1207");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.92");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"OUT\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-early-leave\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer continuousEarlyLeaveCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_EARLY_LEAVE'",
+                Integer.class,
+                1001L
+        );
+        Integer warningCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM warningRecord WHERE level = 'HIGH'",
+                Integer.class
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_EARLY_LEAVE' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), continuousEarlyLeaveCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次下班打卡早退"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousIllegalTimeExceptionAfterThreeRecentIllegalTimeCheckins() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 4, 45, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1992L, 1001L, "2026-03-29 04:20:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1993L, 1001L, "2026-03-30 04:40:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        insertFaceFeature(1001L, "face-image-continuous-illegal-time", 1209L, "hash-continuous-illegal-time-1209");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.94");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-illegal-time\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer continuousIllegalTimeCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_ILLEGAL_TIME'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_ILLEGAL_TIME' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), continuousIllegalTimeCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次发生非法时间打卡"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousRepeatCheckExceptionAfterThreeRecentRepeatCheckins() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 8, 59, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1984L, 1001L, "2026-03-29 08:56:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1985L, 1001L, "2026-03-30 08:57:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        insertAttendanceRecord(1995L, 1001L, "2026-03-31 08:58:00", "IN", "DEV-001", "办公区A", 98.40, "NORMAL");
+        jdbcTemplate.update(
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                4014L,
+                1984L,
+                1001L,
+                "REPEAT_CHECK",
+                "LOW",
+                "RULE",
+                "历史重复打卡一",
+                "PENDING",
+                "2026-03-29 08:56:00"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                4015L,
+                1985L,
+                1001L,
+                "REPEAT_CHECK",
+                "LOW",
+                "RULE",
+                "历史重复打卡二",
+                "PENDING",
+                "2026-03-30 08:57:00"
+        );
+        insertFaceFeature(1001L, "face-image-continuous-repeat-check", 1210L, "hash-continuous-repeat-check-1210");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.95");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-repeat-check\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer continuousRepeatCheckCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_REPEAT_CHECK'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_REPEAT_CHECK' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), continuousRepeatCheckCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次出现短时间重复打卡"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousAttendanceRiskAfterThreeRecentRuleExceptions() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 9, 16, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1996L, 1001L, "2026-03-28 04:20:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1997L, 1001L, "2026-03-30 08:57:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        insertAttendanceException(4018L, 1996L, 1001L, "ILLEGAL_TIME", "HIGH", "RULE", "历史非法时间打卡", "PENDING", "2026-03-28 04:21:00");
+        insertAttendanceException(4019L, 1997L, 1001L, "REPEAT_CHECK", "LOW", "RULE", "历史重复打卡", "PENDING", "2026-03-30 08:57:00");
+        insertFaceFeature(1001L, "face-image-continuous-attendance-risk", 1212L, "hash-continuous-attendance-risk-1212");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.97");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-attendance-risk\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_ATTENDANCE_RISK'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_ATTENDANCE_RISK' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次出现规则异常"));
+    }
+
+    @Test
     void shouldAutoCreateModelExceptionAndWarningAfterSuspiciousCheckin() throws Exception {
         insertDevice("DEV-009", "异地设备", "外部区域", 1, "用于复杂异常触发");
         insertAttendanceRecord(1999L, 1001L, "2026-03-30 08:58:00", "IN", "DEV-009", "外部区域", 95.50, "NORMAL");
@@ -343,6 +555,123 @@ class AttendanceManagementIntegrationTest {
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), modelExceptionCount);
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), modelLogCount);
+    }
+
+    @Test
+    void shouldUpgradeToContinuousProxyCheckinAfterThreeRecentModelDecisions() throws Exception {
+        insertDevice("DEV-009", "异地设备", "外部区域", 1, "用于复杂异常触发");
+        insertAttendanceRecord(1979L, 1001L, "2026-03-28 08:58:00", "IN", "DEV-009", "外部区域", 95.50, "NORMAL");
+        insertAttendanceRecord(1980L, 1001L, "2026-03-29 08:58:00", "IN", "DEV-009", "外部区域", 95.40, "NORMAL");
+        insertAttendanceException(4016L, 1979L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "历史疑似代打卡一", "PENDING", "2026-03-28 09:00:00");
+        insertAttendanceException(4017L, 1980L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "历史疑似代打卡二", "PENDING", "2026-03-29 09:00:00");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请输出结构化分析结果", "ENABLED", "默认模板");
+        insertFaceFeature(1001L, "face-image-continuous-proxy", 1211L, "hash-continuous-proxy-1211");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockModelResponse());
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.96");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-proxy\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史同类模型异常"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousModelRiskAfterThreeRecentModelDecisions() throws Exception {
+        insertDevice("DEV-009", "异地设备", "外部区域", 1, "用于复杂异常触发");
+        insertAttendanceRecord(1979L, 1001L, "2026-03-28 08:58:00", "IN", "DEV-009", "外部区域", 95.50, "NORMAL");
+        insertAttendanceRecord(1980L, 1001L, "2026-03-29 08:58:00", "IN", "DEV-009", "外部区域", 95.40, "NORMAL");
+        insertAttendanceException(4020L, 1979L, 1001L, "DEVICE_RISK", "HIGH", "MODEL", "历史模型异常一", "PENDING", "2026-03-28 09:00:00");
+        insertAttendanceException(4021L, 1980L, 1001L, "DEVICE_RISK", "HIGH", "MODEL", "历史模型异常二", "PENDING", "2026-03-29 09:00:00");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请输出结构化分析结果", "ENABLED", "默认模板");
+        insertFaceFeature(1001L, "face-image-continuous-model-risk", 1213L, "hash-continuous-model-risk-1213");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockGenericModelResponse());
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.98");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-model-risk\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_MODEL_RISK'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_MODEL_RISK' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史模型异常在最近7天内已连续出现"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousProxyCheckinExceptionAfterThreeRecentModelWarnings() throws Exception {
+        insertDevice("DEV-009", "异地设备", "外部区域", 1, "用于复杂异常触发");
+        insertAttendanceRecord(1979L, 1001L, "2026-03-28 08:58:00", "IN", "DEV-009", "外部区域", 95.50, "NORMAL");
+        insertAttendanceRecord(1980L, 1001L, "2026-03-29 08:58:00", "IN", "DEV-009", "外部区域", 95.40, "NORMAL");
+        insertAttendanceException(4016L, 1979L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "历史疑似代打卡一", "PENDING", "2026-03-28 09:00:00");
+        insertAttendanceException(4017L, 1980L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "历史疑似代打卡二", "PENDING", "2026-03-29 09:00:00");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请输出结构化分析结果", "ENABLED", "默认模板");
+        insertFaceFeature(1001L, "face-image-continuous-proxy", 1211L, "hash-continuous-proxy-1211");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockModelResponse());
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.96");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-proxy\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史同类模型异常"));
     }
 
     @Test
@@ -455,6 +784,118 @@ class AttendanceManagementIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(visibleEvidence.contains("实际距离米="));
         org.junit.jupiter.api.Assertions.assertTrue(visibleEvidence.contains("阈值距离米=3000"));
         org.junit.jupiter.api.Assertions.assertTrue(visibleEvidence.contains("窗口分钟=30"));
+    }
+
+    @Test
+    void shouldUpgradeToContinuousMultiLocationConflictAfterThreeRecentCrossSiteCheckins() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 9, 5, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        jdbcTemplate.update(
+                "UPDATE device SET longitude = ?, latitude = ? WHERE id = ?",
+                new BigDecimal("116.397128"),
+                new BigDecimal("39.916527"),
+                "DEV-001"
+        );
+        insertDevice("DEV-012", "连续异地设备", "上海园区", 1, "用于连续多地点异常触发");
+        jdbcTemplate.update(
+                "UPDATE device SET longitude = ?, latitude = ? WHERE id = ?",
+                new BigDecimal("121.473701"),
+                new BigDecimal("31.230416"),
+                "DEV-012"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceRecord (id, userId, checkTime, checkType, deviceId, ipAddr, location, longitude, latitude, faceScore, status, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                1994L,
+                1001L,
+                "2026-03-31 08:59:00",
+                "IN",
+                "DEV-001",
+                "192.168.1.52",
+                "办公区A",
+                new BigDecimal("116.397128"),
+                new BigDecimal("39.916527"),
+                new BigDecimal("98.90"),
+                "NORMAL"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceRecord (id, userId, checkTime, checkType, deviceId, ipAddr, location, longitude, latitude, faceScore, status, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                1986L,
+                1001L,
+                "2026-03-28 08:58:00",
+                "IN",
+                "DEV-001",
+                "192.168.1.53",
+                "办公区A",
+                new BigDecimal("116.397128"),
+                new BigDecimal("39.916527"),
+                new BigDecimal("98.30"),
+                "ABNORMAL"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceRecord (id, userId, checkTime, checkType, deviceId, ipAddr, location, longitude, latitude, faceScore, status, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                1987L,
+                1001L,
+                "2026-03-30 08:57:00",
+                "IN",
+                "DEV-001",
+                "192.168.1.54",
+                "办公区A",
+                new BigDecimal("116.397128"),
+                new BigDecimal("39.916527"),
+                new BigDecimal("98.40"),
+                "ABNORMAL"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                4010L,
+                1986L,
+                1001L,
+                "MULTI_LOCATION_CONFLICT",
+                "HIGH",
+                "RULE",
+                "历史多地点冲突一",
+                "PENDING",
+                "2026-03-28 09:03:00"
+        );
+        jdbcTemplate.update(
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                4011L,
+                1987L,
+                1001L,
+                "MULTI_LOCATION_CONFLICT",
+                "HIGH",
+                "RULE",
+                "历史多地点冲突二",
+                "PENDING",
+                "2026-03-30 09:01:00"
+        );
+        insertFaceFeature(1001L, "face-image-continuous-multi-location", 1208L, "hash-continuous-multi-location-1208");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.93");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-012\",\"clientLongitude\":121.473700,\"clientLatitude\":31.230400,\"imageData\":\"face-image-continuous-multi-location\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        Integer continuousConflictCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_MULTI_LOCATION_CONFLICT'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_MULTI_LOCATION_CONFLICT' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), continuousConflictCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("连续3次出现多地点冲突"));
     }
 
     @Test
@@ -864,6 +1305,19 @@ class AttendanceManagementIntegrationTest {
         return response;
     }
 
+    private ModelInvokeResponse mockGenericModelResponse() {
+        ModelInvokeResponse response = new ModelInvokeResponse();
+        response.setConclusion("DEVICE_RISK");
+        response.setRiskLevel("HIGH");
+        response.setConfidenceScore(new BigDecimal("89.50"));
+        response.setDecisionReason("设备与历史行为偏离较大");
+        response.setReasonSummary("模型识别当前存在设备行为异常风险");
+        response.setActionSuggestion("建议优先人工复核设备与地点信息");
+        response.setSimilarCaseSummary("存在相似设备异常风险案例");
+        response.setRawResponse("{\"conclusion\":\"DEVICE_RISK\"}");
+        return response;
+    }
+
     private void insertFaceFeature(Long userId, String imageData, Long id, String featureHash) {
         jdbcTemplate.update(
                 "INSERT INTO faceFeature (id, userId, featureData, featureHash, encryptFlag, createTime) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
@@ -894,6 +1348,29 @@ class AttendanceManagementIntegrationTest {
                 location,
                 faceScore,
                 status
+        );
+    }
+
+    private void insertAttendanceException(Long id,
+                                           Long recordId,
+                                           Long userId,
+                                           String type,
+                                           String riskLevel,
+                                           String sourceType,
+                                           String description,
+                                           String processStatus,
+                                           String createTime) {
+        jdbcTemplate.update(
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id,
+                recordId,
+                userId,
+                type,
+                riskLevel,
+                sourceType,
+                description,
+                processStatus,
+                createTime
         );
     }
 

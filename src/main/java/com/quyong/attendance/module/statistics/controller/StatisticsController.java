@@ -11,6 +11,7 @@ import com.quyong.attendance.module.statistics.service.StatisticsService;
 import com.quyong.attendance.module.statistics.vo.DepartmentRiskBriefVO;
 import com.quyong.attendance.module.statistics.vo.DepartmentStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.ExceptionTrendVO;
+import com.quyong.attendance.module.statistics.vo.ExceptionTypeTrendVO;
 import com.quyong.attendance.module.statistics.vo.PersonalStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsExportFileVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsSummaryVO;
@@ -48,6 +49,11 @@ public class StatisticsController {
     @GetMapping("/exception-trend")
     public Result<ExceptionTrendVO> exceptionTrend(ExceptionTrendQueryDTO dto) {
         return Result.success(statisticsService.exceptionTrend(dto));
+    }
+
+    @GetMapping("/exception-type-trend")
+    public Result<ExceptionTypeTrendVO> exceptionTypeTrend(ExceptionTrendQueryDTO dto) {
+        return Result.success(statisticsService.exceptionTypeTrend(dto));
     }
 
     @GetMapping("/summary")

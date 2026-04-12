@@ -45,7 +45,18 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private static final String PENDING_STATUS = "PENDING";
     private static final String ABNORMAL_STATUS = "ABNORMAL";
     private static final String MULTI_LOCATION_CONFLICT = "MULTI_LOCATION_CONFLICT";
+    private static final String CONTINUOUS_MULTI_LOCATION_CONFLICT = "CONTINUOUS_MULTI_LOCATION_CONFLICT";
+    private static final String CONTINUOUS_ILLEGAL_TIME = "CONTINUOUS_ILLEGAL_TIME";
+    private static final String CONTINUOUS_REPEAT_CHECK = "CONTINUOUS_REPEAT_CHECK";
+    private static final String CONTINUOUS_PROXY_CHECKIN = "CONTINUOUS_PROXY_CHECKIN";
+    private static final String CONTINUOUS_ATTENDANCE_RISK = "CONTINUOUS_ATTENDANCE_RISK";
+    private static final String CONTINUOUS_MODEL_RISK = "CONTINUOUS_MODEL_RISK";
+    private static final String CONTINUOUS_LATE = "CONTINUOUS_LATE";
+    private static final String CONTINUOUS_EARLY_LEAVE = "CONTINUOUS_EARLY_LEAVE";
     private static final String HISTORICAL_MULTI_LOCATION_TRACE_NOTE = "历史版本未持久化完整空间证据，当前为避免基于变更后的记录/阈值重建失真证据，不做明细回填";
+    private static final int CONTINUOUS_LATE_RECORD_COUNT = 3;
+    private static final int CONTINUOUS_LATE_WINDOW_DAYS = 7;
+    private static final int CONTINUOUS_MULTI_LOCATION_RECORD_COUNT = 3;
 
     private final RuleService ruleService;
     private final AttendanceRecordMapper attendanceRecordMapper;
@@ -117,7 +128,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             attendanceException.setRiskLevel(resolveRuleRiskLevel(type));
             attendanceException.setSourceType(RULE_SOURCE);
             String description = resolveRuleDescription(type);
-            String ruleDecisionEvidence = resolveRuleDecisionEvidence(record, type, description);
+            String ruleDecisionEvidence = resolveRuleDecisionEvidence(record, rule, type, description);
             attendanceException.setDescription(description);
             attendanceException.setProcessStatus(PENDING_STATUS);
             attendanceExceptionMapper.insert(attendanceException);
@@ -147,9 +158,6 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             if (record == null) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录不存在");
             }
-            if (!record.getUserId().equals(validatedDTO.getUserId())) {
-                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录用户与请求用户不一致");
-            }
 
             AttendanceException existingModel = findLatestException(record.getId(), "MODEL");
             if (existingModel != null) {
@@ -173,6 +181,8 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             ModelInvokeResponse response;
             try {
                 response = modelGateway.invoke(buildModelRequest(record, promptTemplate, inputSummary));
+                response = applyContinuousProxyEscalation(record, response);
+                response = applyContinuousModelRiskEscalation(record, response);
             } catch (Exception exception) {
                 AttendanceException fallbackException = new AttendanceException();
                 fallbackException.setRecordId(record.getId());
@@ -271,6 +281,58 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         }
     }
 
+    private ModelInvokeResponse applyContinuousProxyEscalation(AttendanceRecord record, ModelInvokeResponse response) {
+        if (record == null || response == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return response;
+        }
+        if (!"PROXY_CHECKIN".equals(limitText(response.getConclusion(), 50))) {
+            return response;
+        }
+
+        Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .in(AttendanceException::getSourceType, "MODEL", "MODEL_FALLBACK")
+                .in(AttendanceException::getType, "PROXY_CHECKIN", CONTINUOUS_PROXY_CHECKIN)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime()));
+        if (count == null || count.longValue() < CONTINUOUS_LATE_RECORD_COUNT - 1L) {
+            return response;
+        }
+
+        response.setConclusion(CONTINUOUS_PROXY_CHECKIN);
+        response.setRiskLevel("HIGH");
+        response.setReasonSummary("最近7天内连续3次疑似代打卡，已升级为持续性高风险行为");
+        response.setDecisionReason("模型识别本次疑似代打卡，且历史同类模型异常在最近7天内已连续出现");
+        response.setActionSuggestion("建议优先核查人脸、设备、地点和终端信息，并尽快人工复核");
+        return response;
+    }
+
+    private ModelInvokeResponse applyContinuousModelRiskEscalation(AttendanceRecord record, ModelInvokeResponse response) {
+        if (record == null || response == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return response;
+        }
+        String conclusion = limitText(response.getConclusion(), 50);
+        if (!StringUtils.hasText(conclusion) || CONTINUOUS_PROXY_CHECKIN.equals(conclusion) || CONTINUOUS_MODEL_RISK.equals(conclusion)) {
+            return response;
+        }
+
+        Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .in(AttendanceException::getSourceType, "MODEL", "MODEL_FALLBACK")
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime()));
+        if (count == null || count.longValue() < CONTINUOUS_LATE_RECORD_COUNT - 1L) {
+            return response;
+        }
+
+        response.setConclusion(CONTINUOUS_MODEL_RISK);
+        response.setRiskLevel("HIGH");
+        response.setReasonSummary("最近7天内连续3次出现模型侧异常判断，已升级为持续性模型风险行为");
+        response.setDecisionReason("模型识别本次异常，且历史模型异常在最近7天内已连续出现");
+        response.setActionSuggestion("建议优先查看模型证据链、风险人员档案并安排人工复核");
+        return response;
+    }
+
     private ExceptionDecisionVO toDecisionVO(AttendanceException attendanceException) {
         ExceptionDecisionVO vo = new ExceptionDecisionVO();
         vo.setExceptionId(attendanceException.getId());
@@ -302,11 +364,29 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     }
 
     private String detectRuleType(AttendanceRecord record, Rule rule) {
+        if (isContinuousIllegalTimePattern(record)) {
+            return CONTINUOUS_ILLEGAL_TIME;
+        }
         if (isIllegalTime(record)) {
             return "ILLEGAL_TIME";
         }
+        if (isContinuousMultiLocationPattern(record)) {
+            return CONTINUOUS_MULTI_LOCATION_CONFLICT;
+        }
         if (isMultiLocationConflict(record)) {
             return MULTI_LOCATION_CONFLICT;
+        }
+        if (isContinuousLatePattern(record, rule)) {
+            return CONTINUOUS_LATE;
+        }
+        if (isContinuousEarlyLeavePattern(record, rule)) {
+            return CONTINUOUS_EARLY_LEAVE;
+        }
+        if (isContinuousRepeatCheckPattern(record, rule)) {
+            return CONTINUOUS_REPEAT_CHECK;
+        }
+        if (isContinuousAttendanceRiskPattern(record, rule)) {
+            return CONTINUOUS_ATTENDANCE_RISK;
         }
         if (isLate(record, rule)) {
             return "LATE";
@@ -328,16 +408,93 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return time.isBefore(LocalTime.of(5, 0)) || time.isAfter(LocalTime.of(23, 0));
     }
 
+    private boolean isContinuousIllegalTimePattern(AttendanceRecord record) {
+        if (!isIllegalTime(record) || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+
+        java.util.List<AttendanceRecord> previousRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + (CONTINUOUS_LATE_RECORD_COUNT - 1)));
+
+        if (previousRecords == null || previousRecords.size() < CONTINUOUS_LATE_RECORD_COUNT - 1) {
+            return false;
+        }
+
+        for (AttendanceRecord previousRecord : previousRecords) {
+            if (!isIllegalTime(previousRecord)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean isLate(AttendanceRecord record, Rule rule) {
         return record.getCheckTime() != null
                 && "IN".equals(record.getCheckType())
                 && record.getCheckTime().toLocalTime().isAfter(rule.getStartTime().plusMinutes(rule.getLateThreshold().longValue()));
     }
 
+    private boolean isContinuousLatePattern(AttendanceRecord record, Rule rule) {
+        if (!isLate(record, rule) || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+
+        java.util.List<AttendanceRecord> previousInRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .eq(AttendanceRecord::getCheckType, "IN")
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + (CONTINUOUS_LATE_RECORD_COUNT - 1)));
+
+        if (previousInRecords == null || previousInRecords.size() < CONTINUOUS_LATE_RECORD_COUNT - 1) {
+            return false;
+        }
+
+        for (AttendanceRecord previousRecord : previousInRecords) {
+            if (!isLate(previousRecord, rule)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean isEarlyLeave(AttendanceRecord record, Rule rule) {
         return record.getCheckTime() != null
                 && "OUT".equals(record.getCheckType())
                 && record.getCheckTime().toLocalTime().isBefore(rule.getEndTime().minusMinutes(rule.getEarlyThreshold().longValue()));
+    }
+
+    private boolean isContinuousEarlyLeavePattern(AttendanceRecord record, Rule rule) {
+        if (!isEarlyLeave(record, rule) || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+
+        java.util.List<AttendanceRecord> previousOutRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .eq(AttendanceRecord::getCheckType, "OUT")
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + (CONTINUOUS_LATE_RECORD_COUNT - 1)));
+
+        if (previousOutRecords == null || previousOutRecords.size() < CONTINUOUS_LATE_RECORD_COUNT - 1) {
+            return false;
+        }
+
+        for (AttendanceRecord previousRecord : previousOutRecords) {
+            if (!isEarlyLeave(previousRecord, rule)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isRepeatCheck(AttendanceRecord record, Rule rule) {
@@ -350,6 +507,56 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusMinutes(rule.getRepeatLimit().longValue()))
                 .lt(AttendanceRecord::getCheckTime, record.getCheckTime()));
         return count != null && count.longValue() > 0L;
+    }
+
+    private boolean isContinuousRepeatCheckPattern(AttendanceRecord record, Rule rule) {
+        if (!isRepeatCheck(record, rule) || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+
+        Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType, "REPEAT_CHECK", CONTINUOUS_REPEAT_CHECK)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime()));
+        return count != null && count.longValue() >= CONTINUOUS_LATE_RECORD_COUNT - 1L;
+    }
+
+    private boolean isContinuousAttendanceRiskPattern(AttendanceRecord record, Rule rule) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+        String currentBaseType = resolveCurrentBaseRuleType(record, rule);
+        if (!StringUtils.hasText(currentBaseType)) {
+            return false;
+        }
+
+        Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime()));
+        return count != null && count.longValue() >= CONTINUOUS_LATE_RECORD_COUNT - 1L;
+    }
+
+    private String resolveCurrentBaseRuleType(AttendanceRecord record, Rule rule) {
+        if (isIllegalTime(record)) {
+            return "ILLEGAL_TIME";
+        }
+        if (isMultiLocationConflict(record)) {
+            return MULTI_LOCATION_CONFLICT;
+        }
+        if (isLate(record, rule)) {
+            return "LATE";
+        }
+        if (isEarlyLeave(record, rule)) {
+            return "EARLY_LEAVE";
+        }
+        if (isRepeatCheck(record, rule)) {
+            return "REPEAT_CHECK";
+        }
+        return null;
     }
 
     private boolean isMultiLocationConflict(AttendanceRecord record) {
@@ -389,8 +596,40 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return distanceMeters.compareTo(mapProperties.getMultiLocationDistanceMeters()) >= 0;
     }
 
+    private boolean isContinuousMultiLocationPattern(AttendanceRecord record) {
+        if (!isMultiLocationConflict(record) || record.getUserId() == null || record.getCheckTime() == null) {
+            return false;
+        }
+
+        Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType, MULTI_LOCATION_CONFLICT, CONTINUOUS_MULTI_LOCATION_CONFLICT)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime()));
+        return count != null && count.longValue() >= CONTINUOUS_MULTI_LOCATION_RECORD_COUNT - 1L;
+    }
+
     private String resolveRuleRiskLevel(String type) {
         if (MULTI_LOCATION_CONFLICT.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_MULTI_LOCATION_CONFLICT.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_ILLEGAL_TIME.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_REPEAT_CHECK.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_ATTENDANCE_RISK.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_LATE.equals(type)) {
+            return "HIGH";
+        }
+        if (CONTINUOUS_EARLY_LEAVE.equals(type)) {
             return "HIGH";
         }
         if ("ILLEGAL_TIME".equals(type)) {
@@ -406,6 +645,24 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         if (MULTI_LOCATION_CONFLICT.equals(type)) {
             return "短时间内在多个地点完成打卡，判定为空间冲突";
         }
+        if (CONTINUOUS_MULTI_LOCATION_CONFLICT.equals(type)) {
+            return "最近7天内连续3次出现多地点冲突，判定为连续多地点冲突模式异常";
+        }
+        if (CONTINUOUS_ILLEGAL_TIME.equals(type)) {
+            return "最近7天内连续3次发生非法时间打卡，判定为连续非法时间打卡模式异常";
+        }
+        if (CONTINUOUS_REPEAT_CHECK.equals(type)) {
+            return "最近7天内连续3次出现短时间重复打卡，判定为连续重复打卡模式异常";
+        }
+        if (CONTINUOUS_ATTENDANCE_RISK.equals(type)) {
+            return "最近7天内连续3次出现规则异常，判定为持续考勤风险模式异常";
+        }
+        if (CONTINUOUS_LATE.equals(type)) {
+            return "最近7天内连续3次上班打卡迟到，判定为连续迟到模式异常";
+        }
+        if (CONTINUOUS_EARLY_LEAVE.equals(type)) {
+            return "最近7天内连续3次下班打卡早退，判定为连续早退模式异常";
+        }
         if ("LATE".equals(type)) {
             return "超过上班时间阈值，判定为迟到";
         }
@@ -418,7 +675,49 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return "短时间内重复打卡";
     }
 
-    private String resolveRuleDecisionEvidence(AttendanceRecord record, String type, String description) {
+    private String resolveRuleDecisionEvidence(AttendanceRecord record, Rule rule, String type, String description) {
+        if (CONTINUOUS_LATE.equals(type)) {
+            String evidence = buildContinuousLateEvidence(record);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
+        if (CONTINUOUS_ILLEGAL_TIME.equals(type)) {
+            String evidence = buildContinuousIllegalTimeEvidence(record);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
+        if (CONTINUOUS_REPEAT_CHECK.equals(type)) {
+            String evidence = buildContinuousRepeatCheckEvidence(record);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
+        if (CONTINUOUS_ATTENDANCE_RISK.equals(type)) {
+            String evidence = buildContinuousAttendanceRiskEvidence(record, rule);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
+        if (CONTINUOUS_MULTI_LOCATION_CONFLICT.equals(type)) {
+            String evidence = buildContinuousMultiLocationEvidence(record);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
+        if (CONTINUOUS_EARLY_LEAVE.equals(type)) {
+            String evidence = buildContinuousEarlyLeaveEvidence(record);
+            if (evidence != null) {
+                return evidence;
+            }
+            return description;
+        }
         if (!MULTI_LOCATION_CONFLICT.equals(type)) {
             return description;
         }
@@ -427,6 +726,202 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             return evidence;
         }
         return description;
+    }
+
+    private String buildContinuousLateEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+
+        java.util.List<AttendanceRecord> recentLateRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .eq(AttendanceRecord::getCheckType, "IN")
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .le(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + CONTINUOUS_LATE_RECORD_COUNT));
+
+        if (recentLateRecords == null || recentLateRecords.size() < CONTINUOUS_LATE_RECORD_COUNT) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次上班打卡迟到，判定为连续迟到模式异常；迟到记录=");
+        for (int index = recentLateRecords.size() - 1; index >= 0; index--) {
+            AttendanceRecord lateRecord = recentLateRecords.get(index);
+            builder.append('[')
+                    .append(lateRecord.getCheckTime())
+                    .append(" @ ")
+                    .append(resolveLocationLabel(lateRecord))
+                    .append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        return builder.toString();
+    }
+
+    private String buildContinuousIllegalTimeEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+
+        java.util.List<AttendanceRecord> recentIllegalTimeRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .le(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + CONTINUOUS_LATE_RECORD_COUNT));
+
+        if (recentIllegalTimeRecords == null || recentIllegalTimeRecords.size() < CONTINUOUS_LATE_RECORD_COUNT) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次发生非法时间打卡，判定为连续非法时间打卡模式异常；记录=");
+        for (int index = recentIllegalTimeRecords.size() - 1; index >= 0; index--) {
+            AttendanceRecord illegalRecord = recentIllegalTimeRecords.get(index);
+            builder.append('[')
+                    .append(illegalRecord.getCheckTime())
+                    .append(" @ ")
+                    .append(resolveLocationLabel(illegalRecord))
+                    .append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        return builder.toString();
+    }
+
+    private String buildContinuousRepeatCheckEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+
+        java.util.List<AttendanceException> recentRepeatChecks = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType, "REPEAT_CHECK", CONTINUOUS_REPEAT_CHECK)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime())
+                .orderByDesc(AttendanceException::getCreateTime)
+                .orderByDesc(AttendanceException::getId)
+                .last("LIMIT " + (CONTINUOUS_LATE_RECORD_COUNT - 1)));
+
+        if (recentRepeatChecks == null || recentRepeatChecks.size() < CONTINUOUS_LATE_RECORD_COUNT - 1) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次出现短时间重复打卡，判定为连续重复打卡模式异常；历史重复打卡时间=");
+        for (int index = recentRepeatChecks.size() - 1; index >= 0; index--) {
+            AttendanceException repeatCheck = recentRepeatChecks.get(index);
+            builder.append('[').append(repeatCheck.getCreateTime()).append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        builder.append("；当前打卡时间=").append(record.getCheckTime());
+        return builder.toString();
+    }
+
+    private String buildContinuousAttendanceRiskEvidence(AttendanceRecord record, Rule rule) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+        String currentType = resolveCurrentBaseRuleType(record, rule);
+        java.util.List<AttendanceException> recentRuleExceptions = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime())
+                .orderByDesc(AttendanceException::getCreateTime)
+                .orderByDesc(AttendanceException::getId)
+                .last("LIMIT " + (CONTINUOUS_LATE_RECORD_COUNT - 1)));
+        if (recentRuleExceptions == null || recentRuleExceptions.size() < CONTINUOUS_LATE_RECORD_COUNT - 1) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次出现规则异常，判定为持续考勤风险模式异常；历史异常=");
+        for (int index = recentRuleExceptions.size() - 1; index >= 0; index--) {
+            AttendanceException item = recentRuleExceptions.get(index);
+            builder.append('[')
+                    .append(item.getType())
+                    .append(" @ ")
+                    .append(item.getCreateTime())
+                    .append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        builder.append("；当前异常=").append(currentType);
+        return builder.toString();
+    }
+
+    private String buildContinuousMultiLocationEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+
+        java.util.List<AttendanceException> recentConflicts = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, record.getUserId())
+                .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType, MULTI_LOCATION_CONFLICT, CONTINUOUS_MULTI_LOCATION_CONFLICT)
+                .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .lt(AttendanceException::getCreateTime, record.getCheckTime())
+                .orderByDesc(AttendanceException::getCreateTime)
+                .orderByDesc(AttendanceException::getId)
+                .last("LIMIT " + (CONTINUOUS_MULTI_LOCATION_RECORD_COUNT - 1)));
+
+        String currentEvidence = buildMultiLocationConflictEvidence(record);
+        if (recentConflicts == null || recentConflicts.size() < CONTINUOUS_MULTI_LOCATION_RECORD_COUNT - 1) {
+            return currentEvidence;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次出现多地点冲突，判定为连续多地点冲突模式异常；历史冲突时间=");
+        for (int index = recentConflicts.size() - 1; index >= 0; index--) {
+            AttendanceException conflict = recentConflicts.get(index);
+            builder.append('[').append(conflict.getCreateTime()).append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        if (currentEvidence != null) {
+            builder.append("；当前冲突证据=").append(currentEvidence);
+        }
+        return builder.toString();
+    }
+
+    private String buildContinuousEarlyLeaveEvidence(AttendanceRecord record) {
+        if (record == null || record.getUserId() == null || record.getCheckTime() == null) {
+            return null;
+        }
+
+        java.util.List<AttendanceRecord> recentEarlyLeaveRecords = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, record.getUserId())
+                .eq(AttendanceRecord::getCheckType, "OUT")
+                .ge(AttendanceRecord::getCheckTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
+                .le(AttendanceRecord::getCheckTime, record.getCheckTime())
+                .orderByDesc(AttendanceRecord::getCheckTime)
+                .orderByDesc(AttendanceRecord::getId)
+                .last("LIMIT " + CONTINUOUS_LATE_RECORD_COUNT));
+
+        if (recentEarlyLeaveRecords == null || recentEarlyLeaveRecords.size() < CONTINUOUS_LATE_RECORD_COUNT) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder("最近7天内连续3次下班打卡早退，判定为连续早退模式异常；早退记录=");
+        for (int index = recentEarlyLeaveRecords.size() - 1; index >= 0; index--) {
+            AttendanceRecord earlyLeaveRecord = recentEarlyLeaveRecords.get(index);
+            builder.append('[')
+                    .append(earlyLeaveRecord.getCheckTime())
+                    .append(" @ ")
+                    .append(resolveLocationLabel(earlyLeaveRecord))
+                    .append(']');
+            if (index > 0) {
+                builder.append(" -> ");
+            }
+        }
+        return builder.toString();
     }
 
     private String buildMultiLocationConflictEvidence(AttendanceRecord record) {

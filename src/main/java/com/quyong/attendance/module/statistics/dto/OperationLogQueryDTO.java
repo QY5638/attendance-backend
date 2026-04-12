@@ -6,6 +6,7 @@ public class OperationLogQueryDTO {
     private Integer pageSize;
     private Long userId;
     private String type;
+    private String types;
     private String startDate;
     private String endDate;
 
@@ -39,6 +40,14 @@ public class OperationLogQueryDTO {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getTypes() {
+        return types;
+    }
+
+    public void setTypes(String types) {
+        this.types = types;
     }
 
     public String getStartDate() {

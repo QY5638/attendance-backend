@@ -16,6 +16,8 @@ public class WarningVO {
     private String disposeSuggestion;
     private String decisionSource;
     private LocalDateTime sendTime;
+    private Boolean overdue;
+    private Long overdueMinutes;
 
     public Long getId() {
         return id;
@@ -103,5 +105,21 @@ public class WarningVO {
 
     public void setSendTime(LocalDateTime sendTime) {
         this.sendTime = sendTime;
+    }
+
+    public Boolean getOverdue() {
+        return overdue;
+    }
+
+    public void setOverdue(Boolean overdue) {
+        this.overdue = overdue;
+    }
+
+    public Long getOverdueMinutes() {
+        return overdueMinutes;
+    }
+
+    public void setOverdueMinutes(Long overdueMinutes) {
+        this.overdueMinutes = overdueMinutes;
     }
 }

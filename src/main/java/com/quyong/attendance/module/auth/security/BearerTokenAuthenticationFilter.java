@@ -61,7 +61,9 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return "/api/health".equals(path) || "/api/auth/login".equals(path);
+        return "/api/health".equals(path)
+                || "/api/auth/login".equals(path)
+                || "/api/auth/refresh".equals(path);
     }
 
     private boolean isInvalidAuthUser(AuthUser authUser) {

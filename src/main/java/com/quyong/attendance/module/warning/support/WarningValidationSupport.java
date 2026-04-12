@@ -16,6 +16,9 @@ public class WarningValidationSupport {
         WarningQueryDTO safe = dto == null ? new WarningQueryDTO() : dto;
         safe.setPageNum(safe.getPageNum() == null || safe.getPageNum().intValue() < 1 ? 1 : safe.getPageNum());
         safe.setPageSize(safe.getPageSize() == null || safe.getPageSize().intValue() < 1 ? 10 : safe.getPageSize());
+        if (safe.getUserId() != null && safe.getUserId().longValue() <= 0L) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "预警用户不合法");
+        }
         safe.setLevel(normalize(safe.getLevel()));
         safe.setStatus(normalize(safe.getStatus()));
         safe.setType(normalize(safe.getType()));

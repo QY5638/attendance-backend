@@ -4,6 +4,7 @@ public class WarningQueryDTO {
 
     private Integer pageNum;
     private Integer pageSize;
+    private Long userId;
     private String level;
     private String status;
     private String type;
@@ -22,6 +23,14 @@ public class WarningQueryDTO {
 
     public void setPageSize(Integer pageSize) {
         this.pageSize = pageSize;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getLevel() {

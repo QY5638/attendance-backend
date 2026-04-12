@@ -250,6 +250,23 @@ class ExceptionControllerTest {
     }
 
     @Test
+    void shouldUseAttendanceRecordUserWhenComplexCheckRequestUserIdMismatches() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");
+        insertPromptTemplate(8001L, "COMPLEX_EXCEPTION", "复杂异常分析模板", "EXCEPTION_ANALYSIS", "v1.0", "请基于输入摘要输出结构化分析结果", "ENABLED", "默认模板");
+        when(modelGateway.invoke(any(ModelInvokeRequest.class))).thenReturn(mockResponse());
+
+        mockMvc.perform(post("/api/exception/complex-check")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"recordId\":2006,\"userId\":9999,\"riskFeatures\":{\"faceScore\":81.2,\"deviceChanged\":true,\"locationChanged\":true,\"historyAbnormalCount\":2}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.type").value("PROXY_CHECKIN"))
+                .andExpect(jsonPath("$.data.sourceType").value("MODEL"));
+    }
+
+    @Test
     void shouldFallbackWhenModelGatewayFailsDuringComplexCheck() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceRecord(2006L, 1002L, "2026-03-26 08:59:10", "IN", "DEV-009", "外部区域", 81.20, "NORMAL");

@@ -11,6 +11,7 @@ public class StatisticsExportQueryDTO {
     private Integer pageNum;
     private Integer pageSize;
     private String type;
+    private String types;
 
     public String getExportType() {
         return exportType;
@@ -82,5 +83,13 @@ public class StatisticsExportQueryDTO {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getTypes() {
+        return types;
+    }
+
+    public void setTypes(String types) {
+        this.types = types;
     }
 }

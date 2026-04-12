@@ -1,5 +1,6 @@
 package com.quyong.attendance.module.face.vo;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class FaceRegisterVO {
@@ -8,6 +9,10 @@ public class FaceRegisterVO {
     private Boolean registered;
     private String message;
     private LocalDateTime createTime;
+    private BigDecimal qualityScore;
+    private BigDecimal livenessScore;
+    private Boolean livenessPassed;
+    private String provider;
 
     public Long getUserId() {
         return userId;
@@ -39,5 +44,37 @@ public class FaceRegisterVO {
 
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
+    }
+
+    public BigDecimal getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(BigDecimal qualityScore) {
+        this.qualityScore = qualityScore;
+    }
+
+    public BigDecimal getLivenessScore() {
+        return livenessScore;
+    }
+
+    public void setLivenessScore(BigDecimal livenessScore) {
+        this.livenessScore = livenessScore;
+    }
+
+    public Boolean getLivenessPassed() {
+        return livenessPassed;
+    }
+
+    public void setLivenessPassed(Boolean livenessPassed) {
+        this.livenessPassed = livenessPassed;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 }

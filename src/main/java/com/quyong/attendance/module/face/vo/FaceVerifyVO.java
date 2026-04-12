@@ -9,6 +9,10 @@ public class FaceVerifyVO {
     private Boolean matched;
     private BigDecimal faceScore;
     private BigDecimal threshold;
+    private BigDecimal qualityScore;
+    private BigDecimal livenessScore;
+    private Boolean livenessPassed;
+    private String provider;
     private String message;
 
     public Long getUserId() {
@@ -49,6 +53,38 @@ public class FaceVerifyVO {
 
     public void setThreshold(BigDecimal threshold) {
         this.threshold = threshold;
+    }
+
+    public BigDecimal getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(BigDecimal qualityScore) {
+        this.qualityScore = qualityScore;
+    }
+
+    public BigDecimal getLivenessScore() {
+        return livenessScore;
+    }
+
+    public void setLivenessScore(BigDecimal livenessScore) {
+        this.livenessScore = livenessScore;
+    }
+
+    public Boolean getLivenessPassed() {
+        return livenessPassed;
+    }
+
+    public void setLivenessPassed(Boolean livenessPassed) {
+        this.livenessPassed = livenessPassed;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public String getMessage() {

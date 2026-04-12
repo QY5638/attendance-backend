@@ -21,9 +21,6 @@ public class ExceptionValidationSupport {
         if (dto == null || dto.getRecordId() == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录ID不能为空");
         }
-        if (dto.getUserId() == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "用户ID不能为空");
-        }
         return dto;
     }
 

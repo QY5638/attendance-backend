@@ -1,10 +1,8 @@
 package com.quyong.attendance.module.face.support;
 
-import java.math.BigDecimal;
-
 public interface FaceRecognitionProvider {
 
-    String extractFeature(String imageData);
+    FaceRegistrationResult register(Long userId, String imageData, String previousFeatureData);
 
-    BigDecimal compare(String imageData, String storedFeatureData);
+    FaceVerificationResult verify(Long userId, String imageData, String storedFeatureData);
 }

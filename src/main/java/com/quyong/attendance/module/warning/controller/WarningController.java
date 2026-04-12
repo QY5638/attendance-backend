@@ -6,6 +6,7 @@ import com.quyong.attendance.module.warning.dto.WarningQueryDTO;
 import com.quyong.attendance.module.warning.dto.WarningReevaluateDTO;
 import com.quyong.attendance.module.warning.service.WarningService;
 import com.quyong.attendance.module.warning.vo.WarningAdviceVO;
+import com.quyong.attendance.module.warning.vo.WarningDashboardVO;
 import com.quyong.attendance.module.warning.vo.WarningVO;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,11 @@ public class WarningController {
     @GetMapping("/list")
     public Result<PageResult<WarningVO>> list(WarningQueryDTO queryDTO) {
         return Result.success(warningService.list(queryDTO));
+    }
+
+    @GetMapping("/dashboard")
+    public Result<WarningDashboardVO> dashboard() {
+        return Result.success(warningService.dashboard());
     }
 
     @GetMapping("/{id}/advice")

@@ -1,0 +1,24 @@
+app:
+  auth:
+    access-token-ttl-hours: 12
+    refresh-token-ttl-days: 7
+    login-fail-window-minutes: 15
+    login-lock-minutes: 15
+    username-max-failures: 5
+    ip-max-failures: 12
+  face:
+    provider: stub
+    match-score-threshold: 85.00
+    quality-score-threshold: 70.00
+    liveness-threshold: 0.80
+    require-liveness: false
+    liveness-session-ttl-seconds: 180
+    liveness-proof-ttl-seconds: 180
+    liveness-action-count: 3
+    liveness-min-duration-ms: 3000
+    liveness-max-duration-ms: 45000
+    liveness-min-sample-count: 12
+    liveness-blink-score-threshold: 0.65
+    liveness-mouth-open-score-threshold: 0.65
+    liveness-turn-score-threshold: 0.70
+    metadata-secret: test-face-metadata-secret-2026

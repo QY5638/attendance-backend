@@ -28,6 +28,9 @@ public class FaceValidationSupport {
         FaceVerifyDTO target = verifyDTO == null ? new FaceVerifyDTO() : verifyDTO;
         target.setUserId(requireExistingUser(target.getUserId()));
         target.setImageData(requireImageData(target.getImageData()));
+        if (target.getConsumeLiveness() == null) {
+            target.setConsumeLiveness(Boolean.TRUE);
+        }
         return target;
     }
 

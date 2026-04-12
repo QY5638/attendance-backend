@@ -6,6 +6,7 @@ import com.quyong.attendance.module.statistics.entity.OperationLog;
 import com.quyong.attendance.module.statistics.mapper.OperationLogMapper;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.statistics.support.StatisticsValidationSupport;
+import com.quyong.attendance.module.statistics.vo.OperationLogSummaryVO;
 import com.quyong.attendance.module.statistics.vo.OperationLogVO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +16,12 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class OperationLogServiceImpl implements OperationLogService {
@@ -54,11 +60,13 @@ public class OperationLogServiceImpl implements OperationLogService {
         OperationLogQueryDTO safe = statisticsValidationSupport.validateOperationLogQuery(dto);
         LocalDateTime startTime = statisticsValidationSupport.parseQueryStart(safe.getStartDate());
         LocalDateTime endTime = statisticsValidationSupport.parseQueryEnd(safe.getEndDate());
+        List<String> types = resolveTypes(safe);
         int offset = (safe.getPageNum().intValue() - 1) * safe.getPageSize().intValue();
-        long total = operationLogMapper.countByQuery(safe.getUserId(), safe.getType(), startTime, endTime);
+        long total = operationLogMapper.countByQuery(safe.getUserId(), safe.getType(), types, startTime, endTime);
         List<OperationLogVO> records = operationLogMapper.selectPageByQuery(
                 safe.getUserId(),
                 safe.getType(),
+                types,
                 startTime,
                 endTime,
                 safe.getPageSize().intValue(),
@@ -68,10 +76,59 @@ public class OperationLogServiceImpl implements OperationLogService {
     }
 
     @Override
+    public OperationLogSummaryVO summary(OperationLogQueryDTO dto) {
+        OperationLogQueryDTO safe = statisticsValidationSupport.validateOperationLogQuery(dto);
+        LocalDateTime startTime = statisticsValidationSupport.parseQueryStart(safe.getStartDate());
+        LocalDateTime endTime = statisticsValidationSupport.parseQueryEnd(safe.getEndDate());
+        List<String> types = resolveTypes(safe);
+
+        long total = operationLogMapper.countByQuery(safe.getUserId(), safe.getType(), types, startTime, endTime);
+        List<Map<String, Object>> rows = operationLogMapper.selectTypeSummaryByQuery(safe.getUserId(), safe.getType(), types, startTime, endTime);
+
+        Map<String, Long> typeCounts = new LinkedHashMap<String, Long>();
+        for (Map<String, Object> row : rows) {
+            Object label = row.get("label") != null ? row.get("label") : row.get("LABEL");
+            Object count = row.get("total") != null ? row.get("total") : row.get("TOTAL");
+            if (label == null || count == null) {
+                continue;
+            }
+            typeCounts.put(String.valueOf(label), count instanceof Number ? Long.valueOf(((Number) count).longValue()) : Long.valueOf(String.valueOf(count)));
+        }
+
+        OperationLogSummaryVO summaryVO = new OperationLogSummaryVO();
+        summaryVO.setTotal(Long.valueOf(total));
+        summaryVO.setTypeCounts(typeCounts);
+        return summaryVO;
+    }
+
+    @Override
     public List<OperationLogVO> listAll(OperationLogQueryDTO dto) {
         OperationLogQueryDTO safe = statisticsValidationSupport.validateOperationLogQuery(dto);
         LocalDateTime startTime = statisticsValidationSupport.parseQueryStart(safe.getStartDate());
         LocalDateTime endTime = statisticsValidationSupport.parseQueryEnd(safe.getEndDate());
-        return operationLogMapper.selectAllByQuery(safe.getUserId(), safe.getType(), startTime, endTime);
+        return operationLogMapper.selectAllByQuery(safe.getUserId(), safe.getType(), resolveTypes(safe), startTime, endTime);
+    }
+
+    @Override
+    public List<String> resolveTypes(OperationLogQueryDTO dto) {
+        if (dto == null || !StringUtils.hasText(dto.getTypes())) {
+            return null;
+        }
+        String[] rawTypes = dto.getTypes().split(",");
+        Set<String> uniqueTypes = new LinkedHashSet<String>();
+        for (String rawType : rawTypes) {
+            if (rawType == null) {
+                continue;
+            }
+            String normalized = rawType.trim();
+            if (normalized.isEmpty()) {
+                continue;
+            }
+            uniqueTypes.add(normalized.toUpperCase());
+        }
+        if (uniqueTypes.isEmpty()) {
+            return null;
+        }
+        return new ArrayList<String>(uniqueTypes);
     }
 }

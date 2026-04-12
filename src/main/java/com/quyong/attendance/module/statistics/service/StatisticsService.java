@@ -9,6 +9,7 @@ import com.quyong.attendance.module.statistics.dto.StatisticsSummaryQueryDTO;
 import com.quyong.attendance.module.statistics.vo.DepartmentRiskBriefVO;
 import com.quyong.attendance.module.statistics.vo.DepartmentStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.ExceptionTrendVO;
+import com.quyong.attendance.module.statistics.vo.ExceptionTypeTrendVO;
 import com.quyong.attendance.module.statistics.vo.PersonalStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsExportFileVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsSummaryVO;
@@ -22,6 +23,8 @@ public interface StatisticsService {
     DepartmentStatisticsVO department(DepartmentStatisticsQueryDTO dto);
 
     ExceptionTrendVO exceptionTrend(ExceptionTrendQueryDTO dto);
+
+    ExceptionTypeTrendVO exceptionTypeTrend(ExceptionTrendQueryDTO dto);
 
     StatisticsSummaryVO summary(StatisticsSummaryQueryDTO dto);
 

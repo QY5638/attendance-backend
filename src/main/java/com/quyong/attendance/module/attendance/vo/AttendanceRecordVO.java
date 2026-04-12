@@ -12,6 +12,7 @@ public class AttendanceRecordVO {
     private String checkType;
     private String deviceId;
     private String deviceInfo;
+    private String terminalId;
     private String location;
     private BigDecimal clientLongitude;
     private BigDecimal clientLatitude;
@@ -81,6 +82,14 @@ public class AttendanceRecordVO {
 
     public void setDeviceInfo(String deviceInfo) {
         this.deviceInfo = deviceInfo;
+    }
+
+    public String getTerminalId() {
+        return terminalId;
+    }
+
+    public void setTerminalId(String terminalId) {
+        this.terminalId = terminalId;
     }
 
     public BigDecimal getClientLongitude() {

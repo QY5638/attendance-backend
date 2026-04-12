@@ -7,11 +7,14 @@ import com.quyong.attendance.module.warning.dto.WarningQueryDTO;
 import com.quyong.attendance.module.warning.dto.WarningReevaluateDTO;
 import com.quyong.attendance.module.warning.vo.RiskLevelConfigVO;
 import com.quyong.attendance.module.warning.vo.WarningAdviceVO;
+import com.quyong.attendance.module.warning.vo.WarningDashboardVO;
 import com.quyong.attendance.module.warning.vo.WarningVO;
 
 public interface WarningService {
 
     PageResult<WarningVO> list(WarningQueryDTO queryDTO);
+
+    WarningDashboardVO dashboard();
 
     WarningAdviceVO getAdvice(Long id);
 

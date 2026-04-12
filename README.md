@@ -40,8 +40,11 @@
 
 如果本地还要验证依赖外部能力的接口，还需要准备：
 
+- 可本地访问的 `CompreFace` 服务（推荐本机 `http://127.0.0.1:8000`）
 - LLM 服务提供方的地址、模型名和 API Key
 - 地图服务提供方的地址和 API Key
+
+当前人脸与活体链路默认按“单机摄像头 + 本地 CompreFace + 浏览器活体挑战”口径运行，不依赖考勤机、红外相机、深度摄像头、门禁卡或其他外设。
 
 ## 本地配置
 
@@ -83,6 +86,11 @@ Copy-Item application-local.example.yml application-local.yml
 
 如果要验证智能分析或地图相关功能，还需要补齐：
 
+- `app.face.provider`
+- `app.face.compreface-base-url`
+- `app.face.compreface-api-key`
+- `app.face.compreface-subject-prefix`
+- `app.face.metadata-secret`
 - `app.llm.provider`
 - `app.llm.base-url`
 - `app.llm.model`
@@ -92,6 +100,13 @@ Copy-Item application-local.example.yml application-local.yml
 - `app.map.api-key`
 
 示例模板中的值全部是占位符，不能直接用于启动。请只在本地 `application-local.yml` 中填写真实连接信息和密钥，不要提交真实密钥。
+
+### 单机摄像头方案额外说明
+
+- 当前默认 `app.face.provider=compreface`，适合“只有一台带摄像头电脑”的部署方式。
+- `app.face.compreface-api-key` 需要来自本地 `CompreFace` 中创建的 `Recognition Service`。
+- `app.face.metadata-secret` 用于加密人脸模板元数据，至少使用一段本地私有随机字符串，不要复用示例值。
+- `app.face.require-liveness=true` 时，人脸录入、验证与打卡都要求浏览器完成活体挑战；这套活体依赖普通 RGB 摄像头和前端动作挑战，不需要任何额外硬件。
 
 ## 启动步骤
 
@@ -136,6 +151,13 @@ mvn spring-boot:run
 - 仓库根目录 `application-local.yml` 也会在启动时被导入；定位配置问题时请同时核对 `application.yml`、`application-dev.yml`、`application-local.yml`。
 - 默认端口是 `8080`。
 - 请从仓库根目录启动，这样 `user.dir` 会指向仓库根目录，`application-local.yml` 才能被正确读取。
+
+### 5. 单机摄像头链路联调建议
+
+- 先确保本地 `CompreFace` 已启动，且浏览器可访问 `http://127.0.0.1:8000`。
+- 再启动后端 `mvn spring-boot:run`。
+- 人脸相关接口默认会校验 `livenessToken`；如果浏览器端没有先完成活体挑战，后端会拒绝录脸、验脸和打卡。
+- 打卡页的“先行校验”不会消费活体证明，但正式提交打卡会消费证明，防止重复重放。
 
 ## 测试与编译
 
@@ -205,6 +227,31 @@ mvn -DskipTests compile
 
 - 检查 `app.map.provider`、`app.map.base-url`、`app.map.api-key`。
 - 检查地图服务账号额度、白名单或来源限制。
+
+### 5. CompreFace 配置缺失或错误
+
+典型现象：
+
+- 应用能启动，但人脸录入或验证返回 `CompreFace API Key 未配置`、`请求失败`、`档案不存在` 等错误。
+
+排查方向：
+
+- 检查 `app.face.compreface-base-url` 是否能从当前机器访问。
+- 检查 `app.face.compreface-api-key` 是否来自 `Recognition Service`，而不是检测服务或其他应用的 Key。
+- 检查 `CompreFace` 是否已创建对应的人脸识别服务。
+
+### 6. 活体挑战失败或误判较多
+
+典型现象：
+
+- 页面一直提示脸部未居中、光线不足、头部倾斜，或动作多次失败。
+
+排查方向：
+
+- 优先使用电脑自带或直连 USB 摄像头，避免虚拟摄像头源。
+- 保持脸部位于画面中央，避免强逆光、过暗环境和明显歪头。
+- 如果多人同时出现在镜头中，活体挑战会被拒绝。
+- 当前方案只依赖普通 RGB 摄像头和动作挑战，不需要额外硬件；如需降低误判，可在 `app.face.liveness-*` 阈值上做本地校准。
 
 ## 目录内快速操作
 
