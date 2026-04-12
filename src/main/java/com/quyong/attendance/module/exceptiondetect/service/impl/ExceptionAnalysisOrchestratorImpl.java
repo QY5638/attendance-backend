@@ -51,6 +51,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     private static final String CONTINUOUS_PROXY_CHECKIN = "CONTINUOUS_PROXY_CHECKIN";
     private static final String CONTINUOUS_ATTENDANCE_RISK = "CONTINUOUS_ATTENDANCE_RISK";
     private static final String CONTINUOUS_MODEL_RISK = "CONTINUOUS_MODEL_RISK";
+    private static final String COMPLEX_ATTENDANCE_RISK = "COMPLEX_ATTENDANCE_RISK";
     private static final String CONTINUOUS_LATE = "CONTINUOUS_LATE";
     private static final String CONTINUOUS_EARLY_LEAVE = "CONTINUOUS_EARLY_LEAVE";
     private static final String HISTORICAL_MULTI_LOCATION_TRACE_NOTE = "历史版本未持久化完整空间证据，当前为避免基于变更后的记录/阈值重建失真证据，不做明细回填";
@@ -187,7 +188,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 AttendanceException fallbackException = new AttendanceException();
                 fallbackException.setRecordId(record.getId());
                 fallbackException.setUserId(record.getUserId());
-                fallbackException.setType("COMPLEX_ATTENDANCE_RISK");
+                fallbackException.setType(COMPLEX_ATTENDANCE_RISK);
                 fallbackException.setRiskLevel("MEDIUM");
                 fallbackException.setSourceType("MODEL_FALLBACK");
                 fallbackException.setDescription("模型调用失败，已转人工处理");
@@ -231,9 +232,10 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             }
 
             AttendanceException attendanceException = new AttendanceException();
+            String normalizedExceptionType = normalizeModelExceptionType(response.getConclusion());
             attendanceException.setRecordId(record.getId());
             attendanceException.setUserId(record.getUserId());
-            attendanceException.setType(limitText(response.getConclusion(), 50));
+            attendanceException.setType(normalizedExceptionType);
             attendanceException.setRiskLevel(limitText(response.getRiskLevel(), 20));
             attendanceException.setSourceType("MODEL");
             attendanceException.setDescription(limitText(response.getDecisionReason(), 255));
@@ -269,7 +271,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                     attendanceException.getId(),
                     buildRuleFeatureSummary(record, validatedDTO.getRiskFeatures()),
                     response.getRawResponse(),
-                    response.getConclusion(),
+                    normalizedExceptionType,
                     response.getConfidenceScore(),
                     response.getDecisionReason()
             );
@@ -331,6 +333,30 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         response.setDecisionReason("模型识别本次异常，且历史模型异常在最近7天内已连续出现");
         response.setActionSuggestion("建议优先查看模型证据链、风险人员档案并安排人工复核");
         return response;
+    }
+
+    private String normalizeModelExceptionType(String conclusion) {
+        String normalized = limitText(conclusion, 50);
+        if (!StringUtils.hasText(normalized)) {
+            return COMPLEX_ATTENDANCE_RISK;
+        }
+        if ("PROXY_CHECKIN".equals(normalized)
+                || CONTINUOUS_PROXY_CHECKIN.equals(normalized)
+                || CONTINUOUS_MODEL_RISK.equals(normalized)
+                || CONTINUOUS_ATTENDANCE_RISK.equals(normalized)
+                || CONTINUOUS_LATE.equals(normalized)
+                || CONTINUOUS_EARLY_LEAVE.equals(normalized)
+                || CONTINUOUS_MULTI_LOCATION_CONFLICT.equals(normalized)
+                || CONTINUOUS_ILLEGAL_TIME.equals(normalized)
+                || CONTINUOUS_REPEAT_CHECK.equals(normalized)
+                || MULTI_LOCATION_CONFLICT.equals(normalized)
+                || "LATE".equals(normalized)
+                || "EARLY_LEAVE".equals(normalized)
+                || "ILLEGAL_TIME".equals(normalized)
+                || "REPEAT_CHECK".equals(normalized)) {
+            return normalized;
+        }
+        return COMPLEX_ATTENDANCE_RISK;
     }
 
     private ExceptionDecisionVO toDecisionVO(AttendanceException attendanceException) {

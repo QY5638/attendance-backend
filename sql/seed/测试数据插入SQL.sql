@@ -122,7 +122,8 @@ INSERT IGNORE INTO `exceptionType` (`id`, `code`, `name`, `description`, `status
 (7211, 'MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1, '2026-03-20 09:10:00', '2026-03-20 09:10:00'),
 (7212, 'CONTINUOUS_MULTI_LOCATION_CONFLICT', '连续多地点冲突', '连续周期内多次出现跨地点冲突打卡', 1, '2026-03-20 09:11:00', '2026-03-20 09:11:00'),
 (7213, 'CONTINUOUS_ATTENDANCE_RISK', '连续综合考勤异常', '连续周期内多种规则异常叠加形成的综合风险', 1, '2026-03-20 09:12:00', '2026-03-20 09:12:00'),
-(7214, 'CONTINUOUS_MODEL_RISK', '连续模型风险异常', '连续周期内多次命中模型识别的高风险异常', 1, '2026-03-20 09:13:00', '2026-03-20 09:13:00');
+(7214, 'COMPLEX_ATTENDANCE_RISK', '综合识别异常', '模型或降级流程识别出的综合异常风险', 1, '2026-03-20 09:13:00', '2026-03-20 09:13:00'),
+(7215, 'CONTINUOUS_MODEL_RISK', '连续模型风险异常', '连续周期内多次命中模型识别的高风险异常', 1, '2026-03-20 09:14:00', '2026-03-20 09:14:00');
 
 -- 测试异常分析数据
 INSERT IGNORE INTO `promptTemplate` (`id`, `code`, `name`, `sceneType`, `version`, `content`, `status`, `remark`, `createTime`, `updateTime`) VALUES
