@@ -1,9 +1,13 @@
 package com.quyong.attendance.module.exceptiondetect.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.math.BigDecimal;
 
 public class ExceptionDecisionVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
     private String type;
     private String riskLevel;

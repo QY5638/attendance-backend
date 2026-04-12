@@ -374,7 +374,7 @@ class ExceptionControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records.length()").value(1))
-                .andExpect(jsonPath("$.data.records[0].id").value(3001))
+                .andExpect(jsonPath("$.data.records[0].id").value("3001"))
                 .andExpect(jsonPath("$.data.records[0].type").value("PROXY_CHECKIN"));
     }
 
@@ -387,7 +387,7 @@ class ExceptionControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(3001))
+                .andExpect(jsonPath("$.data.id").value("3001"))
                 .andExpect(jsonPath("$.data.type").value("PROXY_CHECKIN"));
     }
 

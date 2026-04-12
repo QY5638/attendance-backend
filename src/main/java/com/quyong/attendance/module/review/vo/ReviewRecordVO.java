@@ -1,11 +1,19 @@
 package com.quyong.attendance.module.review.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.LocalDateTime;
 
 public class ReviewRecordVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long reviewUserId;
     private String reviewResult;
     private String reviewComment;

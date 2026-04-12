@@ -1,10 +1,16 @@
 package com.quyong.attendance.module.warning.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.LocalDateTime;
 
 public class WarningOverdueItemVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long warningId;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
     private String title;
     private String level;

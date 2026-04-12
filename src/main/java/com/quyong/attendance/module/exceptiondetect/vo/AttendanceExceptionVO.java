@@ -1,11 +1,19 @@
 package com.quyong.attendance.module.exceptiondetect.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.LocalDateTime;
 
 public class AttendanceExceptionVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long recordId;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
     private String type;
     private String riskLevel;

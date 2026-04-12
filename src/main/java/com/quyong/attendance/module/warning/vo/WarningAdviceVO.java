@@ -1,11 +1,17 @@
 package com.quyong.attendance.module.warning.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class WarningAdviceVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
     private String type;
     private String level;
@@ -15,9 +21,13 @@ public class WarningAdviceVO {
     private String disposeSuggestion;
     private String decisionSource;
     private LocalDateTime sendTime;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
     private String username;
     private String realName;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long recordId;
     private LocalDateTime checkTime;
     private String checkType;

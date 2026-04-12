@@ -98,8 +98,8 @@ class WarningControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
-                .andExpect(jsonPath("$.data.records[1].exceptionId").value(3002))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value("3001"))
+                .andExpect(jsonPath("$.data.records[1].exceptionId").value("3002"))
                 .andReturn();
 
         JsonNode root = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
@@ -128,8 +128,8 @@ class WarningControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].id").value(5001))
-                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.records[0].id").value("5001"))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value("3001"))
                 .andExpect(jsonPath("$.data.records[0].exceptionType").value("PROXY_CHECKIN"));
     }
 
@@ -150,7 +150,7 @@ class WarningControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].id").value(5002))
+                .andExpect(jsonPath("$.data.records[0].id").value("5002"))
                 .andExpect(jsonPath("$.data.records[0].type").value("ATTENDANCE_WARNING"))
                 .andExpect(jsonPath("$.data.records[0].status").value("UNPROCESSED"));
     }
@@ -167,7 +167,7 @@ class WarningControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records[0].id").value(5004))
+                .andExpect(jsonPath("$.data.records[0].id").value("5004"))
                 .andExpect(jsonPath("$.data.records[0].exceptionType").value("MULTI_LOCATION_CONFLICT"));
     }
 
@@ -183,15 +183,15 @@ class WarningControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(5001))
-                .andExpect(jsonPath("$.data.exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.id").value("5001"))
+                .andExpect(jsonPath("$.data.exceptionId").value("3001"))
                 .andExpect(jsonPath("$.data.priorityScore").value(96.0))
                 .andExpect(jsonPath("$.data.aiSummary").value("高风险摘要"))
                 .andExpect(jsonPath("$.data.disposeSuggestion").value("立即处理"))
                 .andExpect(jsonPath("$.data.decisionSource").value("MODEL_FUSION"))
                 .andExpect(jsonPath("$.data.realName").value("张三"))
                 .andExpect(jsonPath("$.data.username").value("zhangsan"))
-                .andExpect(jsonPath("$.data.recordId").value(2001))
+                .andExpect(jsonPath("$.data.recordId").value("2001"))
                 .andExpect(jsonPath("$.data.location").value("办公区A"))
                 .andExpect(jsonPath("$.data.faceScore").value(96.5))
                 .andExpect(jsonPath("$.data.exceptionType").value("PROXY_CHECKIN"))
@@ -256,8 +256,8 @@ class WarningControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].id").value(5005))
-                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3005));
+                .andExpect(jsonPath("$.data.records[0].id").value("5005"))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value("3005"));
     }
 
     @Test
@@ -279,7 +279,7 @@ class WarningControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3015));
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value("3015"));
     }
 
     @Test
@@ -297,10 +297,10 @@ class WarningControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records[0].id").value(5006))
+                .andExpect(jsonPath("$.data.records[0].id").value("5006"))
                 .andExpect(jsonPath("$.data.records[0].overdue").value(true))
                 .andExpect(jsonPath("$.data.records[0].overdueMinutes").isNumber())
-                .andExpect(jsonPath("$.data.records[1].id").value(5007));
+                .andExpect(jsonPath("$.data.records[1].id").value("5007"));
     }
 
     @Test
@@ -316,7 +316,7 @@ class WarningControllerTest {
                         .content("{\"warningId\":5001,\"reason\":\"规则已更新\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(5001))
+                .andExpect(jsonPath("$.data.id").value("5001"))
                 .andExpect(jsonPath("$.data.type").value("RISK_WARNING"))
                 .andExpect(jsonPath("$.data.status").value("PROCESSED"))
                 .andExpect(jsonPath("$.data.aiSummary").value("电脑设备与地点异常共同提升风险"))

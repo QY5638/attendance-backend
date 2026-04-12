@@ -82,8 +82,8 @@ class ReviewControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(6002))
-                .andExpect(jsonPath("$.data.exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.id").value("6002"))
+                .andExpect(jsonPath("$.data.exceptionId").value("3001"))
                 .andExpect(jsonPath("$.data.reviewResult").value("REJECTED"))
                 .andExpect(jsonPath("$.data.reviewComment").value("最新复核意见"));
     }
@@ -182,8 +182,8 @@ class ReviewControllerTest {
                         .content("{\"exceptionId\":3001,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"人工确认异常\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.exceptionId").value(3001))
-                .andExpect(jsonPath("$.data.reviewUserId").value(9001))
+                .andExpect(jsonPath("$.data.exceptionId").value("3001"))
+                .andExpect(jsonPath("$.data.reviewUserId").value("9001"))
                 .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.reviewComment").value("人工确认异常"))
                 .andExpect(jsonPath("$.data.aiReviewSuggestion").value("电脑设备与地点异常共同提升风险；建议优先人工复核"));
@@ -249,7 +249,7 @@ class ReviewControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value("3001"))
                 .andExpect(jsonPath("$.data.records[0].status").value("PROCESSED"));
     }
 
@@ -298,7 +298,7 @@ class ReviewControllerTest {
                         .content("{\"exceptionId\":3002,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"确认迟到异常\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.exceptionId").value(3002))
+                .andExpect(jsonPath("$.data.exceptionId").value("3002"))
                 .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"));
 
         String processStatus = jdbcTemplate.queryForObject(
@@ -319,7 +319,7 @@ class ReviewControllerTest {
                         .content("{\"exceptionId\":3001,\"reviewResult\":\"CONFIRMED\",\"reviewComment\":\"仅依赖 analysis 也允许复核\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.exceptionId").value(3001))
+                .andExpect(jsonPath("$.data.exceptionId").value("3001"))
                 .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.aiReviewSuggestion").value("模型识别到跨设备与临界分值组合风险；建议优先人工核验近期设备使用情况"));
 
@@ -481,7 +481,7 @@ class ReviewControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.id").value(6001))
+                .andExpect(jsonPath("$.data.id").value("6001"))
                 .andExpect(jsonPath("$.data.feedbackTag").value("TRUE_POSITIVE"));
     }
 

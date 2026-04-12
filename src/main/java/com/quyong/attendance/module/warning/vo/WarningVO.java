@@ -1,11 +1,17 @@
 package com.quyong.attendance.module.warning.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class WarningVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
     private String exceptionType;
     private String type;
