@@ -97,6 +97,7 @@ CREATE TABLE `attendanceRecord` (
   `checkType` VARCHAR(20) NOT NULL COMMENT '打卡类型',
   `deviceId` VARCHAR(64) NOT NULL COMMENT '打卡地点ID',
   `deviceInfo` VARCHAR(128) DEFAULT NULL COMMENT '电脑设备信息',
+  `terminalId` VARCHAR(64) DEFAULT NULL COMMENT '本机标识码',
   `ipAddr` VARCHAR(64) DEFAULT NULL COMMENT 'IP地址',
   `location` VARCHAR(255) DEFAULT NULL COMMENT '打卡地点',
   `clientLongitude` DECIMAL(10,6) DEFAULT NULL COMMENT '客户端经度',
@@ -286,8 +287,16 @@ INSERT INTO `riskLevel` (`code`, `name`, `description`, `status`) VALUES
 
 INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`) VALUES
 ('PROXY_CHECKIN', '疑似代打卡', '疑似由他人代为完成考勤打卡', 1),
+('CONTINUOUS_PROXY_CHECKIN', '连续代打卡', '连续周期内多次命中疑似代打卡风险', 1),
 ('LATE', '迟到', '超过上班时间阈值的异常打卡', 1),
+('CONTINUOUS_LATE', '连续迟到', '连续周期内多次迟到并达到持续异常阈值', 1),
 ('EARLY_LEAVE', '早退', '早于下班时间阈值的异常打卡', 1),
+('CONTINUOUS_EARLY_LEAVE', '连续早退', '连续周期内多次早退并达到持续异常阈值', 1),
 ('REPEAT_CHECK', '重复打卡', '短时间内重复提交同类打卡', 1),
+('CONTINUOUS_REPEAT_CHECK', '连续重复打卡', '连续周期内多次出现短时间重复打卡', 1),
 ('ILLEGAL_TIME', '非法时间打卡', '发生在非法时间段的异常打卡', 1),
-('MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1);
+('CONTINUOUS_ILLEGAL_TIME', '连续非法时间打卡', '连续周期内多次发生在非法时间段的打卡', 1),
+('MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1),
+('CONTINUOUS_MULTI_LOCATION_CONFLICT', '连续多地点冲突', '连续周期内多次出现跨地点冲突打卡', 1),
+('CONTINUOUS_ATTENDANCE_RISK', '连续综合考勤异常', '连续周期内多种规则异常叠加形成的综合风险', 1),
+('CONTINUOUS_MODEL_RISK', '连续模型风险异常', '连续周期内多次命中模型识别的高风险异常', 1);

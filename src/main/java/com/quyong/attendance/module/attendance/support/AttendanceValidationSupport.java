@@ -31,6 +31,7 @@ public class AttendanceValidationSupport {
         target.setCheckType(requireCheckType(target.getCheckType()));
         target.setDeviceId(requireText(target.getDeviceId(), "打卡地点不能为空"));
         target.setDeviceInfo(normalize(target.getDeviceInfo()));
+        target.setTerminalId(normalize(target.getTerminalId()));
         target.setIpAddr(normalize(target.getIpAddr()));
         target.setLocation(normalize(target.getLocation()));
         if (target.getClientLongitude() == null || target.getClientLatitude() == null) {

@@ -8,11 +8,13 @@ public class AttendanceCheckinDTO {
     private String checkType;
     private String deviceId;
     private String deviceInfo;
+    private String terminalId;
     private String ipAddr;
     private String location;
     private BigDecimal clientLongitude;
     private BigDecimal clientLatitude;
     private String imageData;
+    private String livenessToken;
 
     public Long getUserId() {
         return userId;
@@ -44,6 +46,14 @@ public class AttendanceCheckinDTO {
 
     public void setDeviceInfo(String deviceInfo) {
         this.deviceInfo = deviceInfo;
+    }
+
+    public String getTerminalId() {
+        return terminalId;
+    }
+
+    public void setTerminalId(String terminalId) {
+        this.terminalId = terminalId;
     }
 
     public String getIpAddr() {
@@ -84,5 +94,13 @@ public class AttendanceCheckinDTO {
 
     public void setImageData(String imageData) {
         this.imageData = imageData;
+    }
+
+    public String getLivenessToken() {
+        return livenessToken;
+    }
+
+    public void setLivenessToken(String livenessToken) {
+        this.livenessToken = livenessToken;
     }
 }

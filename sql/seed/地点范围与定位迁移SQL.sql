@@ -10,6 +10,7 @@ ALTER TABLE `device`
   ADD COLUMN `radiusMeters` INT NOT NULL DEFAULT 30 COMMENT '打卡半径（米）' AFTER `latitude`;
 
 ALTER TABLE `attendanceRecord`
+  ADD COLUMN `terminalId` VARCHAR(64) DEFAULT NULL COMMENT '本机标识码' AFTER `deviceInfo`,
   ADD COLUMN `clientLongitude` DECIMAL(10,6) DEFAULT NULL COMMENT '客户端经度' AFTER `location`,
   ADD COLUMN `clientLatitude` DECIMAL(10,6) DEFAULT NULL COMMENT '客户端纬度' AFTER `clientLongitude`;
 

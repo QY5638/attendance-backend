@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -34,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class WarningControllerTest {
 
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final PasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     @Autowired
@@ -172,6 +175,8 @@ class WarningControllerTest {
     void shouldReturnWarningAdvice() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
         insertAttendanceException(3001L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
+        insertExceptionAnalysis(4001L, 3001L, "疑似代打卡", new BigDecimal("92.50"), "设备与地点异常共同提升风险", "建议优先人工复核");
+        insertReviewRecord(6001L, 3001L, 9001L, "CONFIRMED", "已确认异常", "建议保持当前处置策略");
         insertWarningRecord(5001L, 3001L, "RISK_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("96.00"), "高风险摘要", "立即处理", "MODEL_FUSION", "2026-03-26 08:59:20");
 
         mockMvc.perform(get("/api/warning/5001/advice")
@@ -183,7 +188,59 @@ class WarningControllerTest {
                 .andExpect(jsonPath("$.data.priorityScore").value(96.0))
                 .andExpect(jsonPath("$.data.aiSummary").value("高风险摘要"))
                 .andExpect(jsonPath("$.data.disposeSuggestion").value("立即处理"))
-                .andExpect(jsonPath("$.data.decisionSource").value("MODEL_FUSION"));
+                .andExpect(jsonPath("$.data.decisionSource").value("MODEL_FUSION"))
+                .andExpect(jsonPath("$.data.realName").value("张三"))
+                .andExpect(jsonPath("$.data.username").value("zhangsan"))
+                .andExpect(jsonPath("$.data.recordId").value(2001))
+                .andExpect(jsonPath("$.data.location").value("办公区A"))
+                .andExpect(jsonPath("$.data.faceScore").value(96.5))
+                .andExpect(jsonPath("$.data.exceptionType").value("PROXY_CHECKIN"))
+                .andExpect(jsonPath("$.data.exceptionSourceType").value("MODEL"))
+                .andExpect(jsonPath("$.data.exceptionDescription").value("疑似代打卡"))
+                .andExpect(jsonPath("$.data.modelConclusion").value("疑似代打卡"))
+                .andExpect(jsonPath("$.data.confidenceScore").value(92.5))
+                .andExpect(jsonPath("$.data.decisionReason").value("设备与地点异常共同提升风险"))
+                .andExpect(jsonPath("$.data.reviewResult").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.reviewUserName").value("系统管理员"))
+                .andExpect(jsonPath("$.data.reviewComment").value("已确认异常"));
+    }
+
+    @Test
+    void shouldReturnWarningDashboardSummary() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        LocalDateTime now = LocalDateTime.now();
+        insertAttendanceException(3011L, 2001L, 1001L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
+        insertAttendanceException(3012L, 2002L, 1001L, "LATE", "MEDIUM", "RULE", "超过上班时间阈值，判定为迟到", "REVIEWED");
+        insertAttendanceException(3013L, 2003L, 1001L, "CONTINUOUS_LATE", "HIGH", "RULE", "连续迟到模式异常", "PENDING");
+        insertWarningRecord(5011L, 3011L, "RISK_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("97.00"), "高风险摘要", "建议尽快处理", "MODEL_FUSION", formatDateTime(now.minusHours(30L)));
+        insertWarningRecord(5012L, 3012L, "ATTENDANCE_WARNING", "MEDIUM", "PROCESSED", new BigDecimal("75.00"), "迟到摘要", "建议提醒员工", "RULE", formatDateTime(now.minusHours(2L)));
+        insertWarningRecord(5013L, 3013L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("91.00"), "连续迟到摘要", "建议优先约谈", "RULE", formatDateTime(now.minusHours(50L)));
+        insertReviewRecord(6012L, 3012L, 9001L, "CONFIRMED", "已处理迟到异常", "建议持续观察", formatDateTime(now.minusHours(1L)));
+
+        mockMvc.perform(get("/api/warning/dashboard")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.totalCount").value(3))
+                .andExpect(jsonPath("$.data.processedCount").value(1))
+                .andExpect(jsonPath("$.data.unprocessedCount").value(2))
+                .andExpect(jsonPath("$.data.highRiskCount").value(2))
+                .andExpect(jsonPath("$.data.overdueCount").value(2))
+                .andExpect(jsonPath("$.data.slaTargetHours").value(24))
+                .andExpect(jsonPath("$.data.withinSlaCount").value(1))
+                .andExpect(jsonPath("$.data.overSlaCount").value(0))
+                .andExpect(jsonPath("$.data.withinSlaRate").value(100.0))
+                .andExpect(jsonPath("$.data.trendPoints.length()").value(7))
+                .andExpect(jsonPath("$.data.topRiskUsers[0].label").value("张三（zhangsan）"))
+                .andExpect(jsonPath("$.data.topRiskUsers[0].count").value(3))
+                .andExpect(jsonPath("$.data.topExceptionTypes[0].label").value("CONTINUOUS_LATE"))
+                .andExpect(jsonPath("$.data.exceptionTrendItems[0].type").value("CONTINUOUS_LATE"))
+                .andExpect(jsonPath("$.data.exceptionTrendItems[0].dailyCounts.length()").value(7))
+                .andExpect(jsonPath("$.data.overdueItems[0].title").value("CONTINUOUS_LATE"))
+                .andExpect(jsonPath("$.data.userPortraits[0].realName").value("张三"))
+                .andExpect(jsonPath("$.data.userPortraits[0].totalWarnings").value(3))
+                .andExpect(jsonPath("$.data.userPortraits[0].overdueWarnings").value(2))
+                .andExpect(jsonPath("$.data.userPortraits[0].latestExceptionType").value("LATE"));
     }
 
     @Test
@@ -201,6 +258,49 @@ class WarningControllerTest {
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records[0].id").value(5005))
                 .andExpect(jsonPath("$.data.records[0].exceptionId").value(3005));
+    }
+
+    @Test
+    void shouldFilterWarningListByUserId() throws Exception {
+        insertUser(1002L, "lisi", "李四", 1L, 2L, 1);
+        insertAttendanceRecord(2004L, 1002L, "2026-03-26 09:18:00", "IN", "DEV-001", "办公区A", 90.10, "ABNORMAL");
+
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3014L, 2001L, 1001L, "CONTINUOUS_LATE", "HIGH", "RULE", "张三连续迟到", "PENDING");
+        insertAttendanceException(3015L, 2004L, 1002L, "PROXY_CHECKIN", "HIGH", "MODEL", "李四疑似代打卡", "PENDING");
+        insertWarningRecord(5014L, 3014L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("88.00"), "张三高风险摘要", "建议优先关注", "RULE", "2026-04-10 08:00:00");
+        insertWarningRecord(5015L, 3015L, "RISK_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("96.00"), "李四高风险摘要", "建议优先人工复核", "MODEL_FUSION", "2026-04-11 08:00:00");
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .param("userId", "1002")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].exceptionId").value(3015));
+    }
+
+    @Test
+    void shouldPrioritizeOverdueWarningsInWarningList() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        LocalDateTime now = LocalDateTime.now();
+        insertAttendanceException(3006L, 2001L, 1001L, "CONTINUOUS_LATE", "HIGH", "RULE", "连续迟到模式异常", "PENDING");
+        insertAttendanceException(3007L, 2002L, 1001L, "LATE", "HIGH", "RULE", "当次迟到异常", "PENDING");
+        insertWarningRecord(5006L, 3006L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("91.00"), "超时预警", "建议立即处理", "RULE", formatDateTime(now.minusHours(50L)));
+        insertWarningRecord(5007L, 3007L, "ATTENDANCE_WARNING", "HIGH", "UNPROCESSED", new BigDecimal("98.00"), "最新预警", "建议尽快处理", "RULE", formatDateTime(now.minusHours(2L)));
+
+        mockMvc.perform(get("/api/warning/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].id").value(5006))
+                .andExpect(jsonPath("$.data.records[0].overdue").value(true))
+                .andExpect(jsonPath("$.data.records[0].overdueMinutes").isNumber())
+                .andExpect(jsonPath("$.data.records[1].id").value(5007));
     }
 
     @Test
@@ -469,6 +569,51 @@ class WarningControllerTest {
                 decisionSource,
                 sendTime
         );
+    }
+
+    private void insertReviewRecord(Long id,
+                                    Long exceptionId,
+                                    Long reviewUserId,
+                                    String result,
+                                    String comment,
+                                    String aiReviewSuggestion) {
+        insertReviewRecord(id, exceptionId, reviewUserId, result, comment, aiReviewSuggestion, null);
+    }
+
+    private void insertReviewRecord(Long id,
+                                    Long exceptionId,
+                                    Long reviewUserId,
+                                    String result,
+                                    String comment,
+                                    String aiReviewSuggestion,
+                                    String reviewTime) {
+        if (reviewTime == null) {
+            jdbcTemplate.update(
+                    "INSERT INTO reviewRecord (id, exceptionId, reviewUserId, result, comment, aiReviewSuggestion, reviewTime) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    id,
+                    exceptionId,
+                    reviewUserId,
+                    result,
+                    comment,
+                    aiReviewSuggestion
+            );
+            return;
+        }
+
+        jdbcTemplate.update(
+                "INSERT INTO reviewRecord (id, exceptionId, reviewUserId, result, comment, aiReviewSuggestion, reviewTime) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                id,
+                exceptionId,
+                reviewUserId,
+                result,
+                comment,
+                aiReviewSuggestion,
+                reviewTime
+        );
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        return value.format(DATE_TIME_FORMATTER);
     }
 
     private String loginAndExtractToken(String username, String password) throws Exception {

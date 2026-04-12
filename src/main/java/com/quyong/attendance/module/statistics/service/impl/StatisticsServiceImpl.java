@@ -22,12 +22,20 @@ import com.quyong.attendance.module.statistics.vo.DepartmentRiskBriefVO;
 import com.quyong.attendance.module.statistics.vo.DepartmentStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.ExceptionTrendPointVO;
 import com.quyong.attendance.module.statistics.vo.ExceptionTrendVO;
+import com.quyong.attendance.module.statistics.vo.ExceptionTypeTrendItemVO;
+import com.quyong.attendance.module.statistics.vo.ExceptionTypeTrendVO;
 import com.quyong.attendance.module.statistics.vo.OperationLogVO;
 import com.quyong.attendance.module.statistics.vo.PersonalStatisticsVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsExportFileVO;
 import com.quyong.attendance.module.statistics.vo.StatisticsSummaryVO;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
+import com.quyong.attendance.module.warning.service.WarningService;
+import com.quyong.attendance.module.warning.vo.WarningDashboardVO;
+import com.quyong.attendance.module.warning.vo.WarningExceptionTrendItemVO;
+import com.quyong.attendance.module.warning.vo.WarningOverdueItemVO;
+import com.quyong.attendance.module.warning.vo.WarningRankingItemVO;
+import com.quyong.attendance.module.warning.vo.WarningUserPortraitVO;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -58,8 +66,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
@@ -75,19 +85,22 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final UserValidationSupport userValidationSupport;
     private final DepartmentMapper departmentMapper;
     private final OperationLogService operationLogService;
+    private final WarningService warningService;
 
     public StatisticsServiceImpl(StatisticsMapper statisticsMapper,
                                  StatisticsValidationSupport statisticsValidationSupport,
                                  StatisticsSummarySupport statisticsSummarySupport,
                                  UserValidationSupport userValidationSupport,
                                  DepartmentMapper departmentMapper,
-                                 OperationLogService operationLogService) {
+                                 OperationLogService operationLogService,
+                                 WarningService warningService) {
         this.statisticsMapper = statisticsMapper;
         this.statisticsValidationSupport = statisticsValidationSupport;
         this.statisticsSummarySupport = statisticsSummarySupport;
         this.userValidationSupport = userValidationSupport;
         this.departmentMapper = departmentMapper;
         this.operationLogService = operationLogService;
+        this.warningService = warningService;
     }
 
     @Override
@@ -143,6 +156,61 @@ public class StatisticsServiceImpl implements StatisticsService {
         ExceptionTrendVO vo = new ExceptionTrendVO();
         vo.setPeriodType(safe.getPeriodType());
         vo.setPoints(new ArrayList<ExceptionTrendPointVO>(pointMap.values()));
+        return vo;
+    }
+
+    @Override
+    public ExceptionTypeTrendVO exceptionTypeTrend(ExceptionTrendQueryDTO dto) {
+        ExceptionTrendQueryDTO safe = statisticsValidationSupport.validateTrend(dto);
+        if (safe.getDeptId() != null) {
+            requireDepartment(safe.getDeptId());
+        }
+        LocalDateTime startTime = statisticsValidationSupport.parseQueryStart(safe.getStartDate());
+        LocalDateTime endTime = statisticsValidationSupport.parseQueryEnd(safe.getEndDate());
+        List<Map<String, Object>> rows = statisticsMapper.selectExceptionTypeTrendRows(safe.getDeptId(), startTime, endTime);
+
+        Set<String> labelSet = new LinkedHashSet<String>();
+        Map<String, Map<String, Long> > trendMap = new LinkedHashMap<String, Map<String, Long> >();
+        Map<String, Long> totalMap = new LinkedHashMap<String, Long>();
+
+        for (Map<String, Object> row : rows) {
+            String bucket = normalizeBucket(String.valueOf(valueOf(row, "bucket")), safe.getPeriodType());
+            String type = String.valueOf(valueOf(row, "type"));
+            Long total = Long.valueOf(numberValue(row, "total"));
+            labelSet.add(bucket);
+
+            Map<String, Long> itemMap = trendMap.get(type);
+            if (itemMap == null) {
+                itemMap = new LinkedHashMap<String, Long>();
+                trendMap.put(type, itemMap);
+            }
+            itemMap.put(bucket, Long.valueOf((itemMap.containsKey(bucket) ? itemMap.get(bucket).longValue() : 0L) + total.longValue()));
+            totalMap.put(type, Long.valueOf((totalMap.containsKey(type) ? totalMap.get(type).longValue() : 0L) + total.longValue()));
+        }
+
+        List<String> labels = new ArrayList<String>(labelSet);
+        List<ExceptionTypeTrendItemVO> items = new ArrayList<ExceptionTypeTrendItemVO>();
+        for (Map.Entry<String, Long> entry : totalMap.entrySet()) {
+            ExceptionTypeTrendItemVO item = new ExceptionTypeTrendItemVO();
+            item.setType(entry.getKey());
+            item.setTotalCount(entry.getValue());
+            Map<String, Long> itemMap = trendMap.get(entry.getKey());
+            List<Long> values = new ArrayList<Long>(labels.size());
+            for (String label : labels) {
+                values.add(itemMap == null || !itemMap.containsKey(label) ? Long.valueOf(0L) : itemMap.get(label));
+            }
+            item.setValues(values);
+            items.add(item);
+        }
+        items.sort(Comparator.comparing(ExceptionTypeTrendItemVO::getTotalCount, Comparator.nullsFirst(Long::compareTo)).reversed());
+        if (items.size() > 5) {
+            items = new ArrayList<ExceptionTypeTrendItemVO>(items.subList(0, 5));
+        }
+
+        ExceptionTypeTrendVO vo = new ExceptionTypeTrendVO();
+        vo.setPeriodType(safe.getPeriodType());
+        vo.setLabels(labels);
+        vo.setItems(items);
         return vo;
     }
 
@@ -229,9 +297,14 @@ public class StatisticsServiceImpl implements StatisticsService {
             ExceptionTrendVO trendVO = exceptionTrend(trendQueryDTO);
             return buildCsvExportFile("异常趋势报表.csv", buildTrendCsv(trendVO));
         }
+        if ("WARNING_DASHBOARD".equals(safe.getExportType())) {
+            WarningDashboardVO dashboard = warningService.dashboard();
+            return buildCsvExportFile("预警看板报表.csv", buildWarningDashboardCsv(dashboard));
+        }
         OperationLogQueryDTO queryDTO = new OperationLogQueryDTO();
         queryDTO.setUserId(safe.getUserId());
         queryDTO.setType(safe.getType());
+        queryDTO.setTypes(safe.getTypes());
         queryDTO.setStartDate(safe.getStartDate());
         queryDTO.setEndDate(safe.getEndDate());
         long total = operationLogService.list(queryDTO).getTotal().longValue();
@@ -527,15 +600,88 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private String buildAuditCsv(List<OperationLogVO> records) {
         StringBuilder builder = new StringBuilder();
-        builder.append("记录编号,办理人编号,办理动作,办理内容,办理时间\n");
+        builder.append("记录编号,办理人编号,账号,姓名,办理动作,办理内容,办理时间\n");
         for (OperationLogVO record : records) {
             builder.append(record.getId()).append(',')
                     .append(record.getUserId()).append(',')
+                    .append(csvValue(record.getUsername())).append(',')
+                    .append(csvValue(record.getRealName())).append(',')
                     .append(csvValue(formatAuditOperationType(record.getType()))).append(',')
                     .append(csvValue(record.getContent())).append(',')
                     .append(record.getOperationTime())
                     .append('\n');
         }
+        return builder.toString();
+    }
+
+    private String buildWarningDashboardCsv(WarningDashboardVO dashboard) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("模块,指标,值\n")
+                .append("预警看板,预警总量,").append(nullableLongValue(dashboard.getTotalCount())).append('\n')
+                .append("预警看板,已处理预警,").append(nullableLongValue(dashboard.getProcessedCount())).append('\n')
+                .append("预警看板,待处理积压,").append(nullableLongValue(dashboard.getUnprocessedCount())).append('\n')
+                .append("预警看板,超时预警,").append(nullableLongValue(dashboard.getOverdueCount())).append('\n')
+                .append("预警看板,超时24-48小时,").append(nullableLongValue(dashboard.getOverdue24To48Count())).append('\n')
+                .append("预警看板,超时48-72小时,").append(nullableLongValue(dashboard.getOverdue48To72Count())).append('\n')
+                .append("预警看板,超时72小时以上,").append(nullableLongValue(dashboard.getOverdueOver72Count())).append('\n')
+                .append("预警看板,关键风险人员,").append(nullableLongValue(dashboard.getCriticalRiskUserCount())).append('\n')
+                .append("预警看板,高风险人员,").append(nullableLongValue(dashboard.getHighRiskUserCount())).append('\n')
+                .append("预警看板,中风险人员,").append(nullableLongValue(dashboard.getMediumRiskUserCount())).append('\n')
+                .append("预警看板,低风险人员,").append(nullableLongValue(dashboard.getLowRiskUserCount())).append('\n')
+                .append("预警看板,平均处置时长(分钟),").append(nullableBigDecimalValue(dashboard.getAverageProcessMinutes())).append('\n')
+                .append("预警看板,SLA目标(小时),").append(nullableIntegerValue(dashboard.getSlaTargetHours())).append('\n')
+                .append("预警看板,按时关闭,").append(nullableLongValue(dashboard.getWithinSlaCount())).append('\n')
+                .append("预警看板,超时关闭,").append(nullableLongValue(dashboard.getOverSlaCount())).append('\n')
+                .append("预警看板,SLA按时关闭率(%),").append(nullableBigDecimalValue(dashboard.getWithinSlaRate())).append('\n')
+                .append('\n')
+                .append("高风险人员排行,人员,预警数,高风险数\n");
+
+        for (WarningRankingItemVO item : safeList(dashboard.getTopRiskUsers())) {
+            builder.append("高风险人员排行,")
+                    .append(csvValue(item.getLabel())).append(',')
+                    .append(nullableLongValue(item.getCount())).append(',')
+                    .append(nullableLongValue(item.getHighRiskCount())).append('\n');
+        }
+
+        builder.append('\n').append("异常类型排行,异常类型,总次数,高风险次数\n");
+        for (WarningRankingItemVO item : safeList(dashboard.getTopExceptionTypes())) {
+            builder.append("异常类型排行,")
+                    .append(csvValue(item.getLabel())).append(',')
+                    .append(nullableLongValue(item.getCount())).append(',')
+                    .append(nullableLongValue(item.getHighRiskCount())).append('\n');
+        }
+
+        builder.append('\n').append("异常类型趋势,异常类型,每日分布\n");
+        for (WarningExceptionTrendItemVO item : safeList(dashboard.getExceptionTrendItems())) {
+            builder.append("异常类型趋势,")
+                    .append(csvValue(item.getType())).append(',')
+                    .append(csvValue(joinDailyCounts(item.getDailyCounts())))
+                    .append('\n');
+        }
+
+        builder.append('\n').append("异常人员画像,人员,风险层级,总预警,高风险,待处理,超时,最新异常\n");
+        for (WarningUserPortraitVO item : safeList(dashboard.getUserPortraits())) {
+            String displayName = item.getRealName() == null ? item.getUsername() : item.getRealName() + "（" + item.getUsername() + "）";
+            builder.append("异常人员画像,")
+                    .append(csvValue(displayName)).append(',')
+                    .append(csvValue(item.getRiskTier())).append(',')
+                    .append(nullableLongValue(item.getTotalWarnings())).append(',')
+                    .append(nullableLongValue(item.getHighRiskWarnings())).append(',')
+                    .append(nullableLongValue(item.getUnprocessedWarnings())).append(',')
+                    .append(nullableLongValue(item.getOverdueWarnings())).append(',')
+                    .append(csvValue(item.getLatestExceptionType())).append('\n');
+        }
+
+        builder.append('\n').append("处置超时提醒,预警编号,异常编号,标题,人员,超时分钟\n");
+        for (WarningOverdueItemVO item : safeList(dashboard.getOverdueItems())) {
+            builder.append("处置超时提醒,")
+                    .append(nullableLongValue(item.getWarningId())).append(',')
+                    .append(nullableLongValue(item.getExceptionId())).append(',')
+                    .append(csvValue(item.getTitle())).append(',')
+                    .append(csvValue(item.getRealName())).append(',')
+                    .append(nullableLongValue(item.getOverdueMinutes())).append('\n');
+        }
+
         return builder.toString();
     }
 
@@ -770,8 +916,20 @@ public class StatisticsServiceImpl implements StatisticsService {
         if ("LOGIN".equals(normalized)) {
             return "登录";
         }
+        if ("LOGIN_FAILURE".equals(normalized)) {
+            return "登录失败";
+        }
+        if ("LOGIN_LOCKED".equals(normalized)) {
+            return "登录锁定";
+        }
         if ("LOGOUT".equals(normalized)) {
             return "退出登录";
+        }
+        if ("TOKEN_REFRESH".equals(normalized)) {
+            return "刷新令牌";
+        }
+        if ("TOKEN_REFRESH_FAILURE".equals(normalized)) {
+            return "刷新失败";
         }
         if ("CHECKIN".equals(normalized)) {
             return "上班打卡";
@@ -794,6 +952,21 @@ public class StatisticsServiceImpl implements StatisticsService {
         if ("SYSTEM_CONFIG".equals(normalized)) {
             return "系统配置";
         }
+        if ("FACE_LIVENESS_SESSION".equals(normalized)) {
+            return "活体会话创建";
+        }
+        if ("FACE_LIVENESS_PASS".equals(normalized)) {
+            return "活体挑战通过";
+        }
+        if ("FACE_LIVENESS_FAIL".equals(normalized)) {
+            return "活体挑战失败";
+        }
+        if ("FACE_LIVENESS_REJECT".equals(normalized)) {
+            return "活体证明拒绝";
+        }
+        if ("FACE_LIVENESS_CONSUME".equals(normalized)) {
+            return "活体证明消费";
+        }
         return StringUtils.hasText(type) ? type : "其他操作";
     }
 
@@ -812,6 +985,32 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private String nullableLongValue(Long value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private String nullableIntegerValue(Integer value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private String nullableBigDecimalValue(BigDecimal value) {
+        return value == null ? "" : value.toPlainString();
+    }
+
+    private String joinDailyCounts(List<Long> values) {
+        if (values == null || values.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < values.size(); index++) {
+            if (index > 0) {
+                builder.append('/');
+            }
+            builder.append(nullableLongValue(values.get(index)));
+        }
+        return builder.toString();
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? Collections.<T>emptyList() : values;
     }
 
     private List<OperationLogVO> selectAllOperationLogs(OperationLogQueryDTO dto) {

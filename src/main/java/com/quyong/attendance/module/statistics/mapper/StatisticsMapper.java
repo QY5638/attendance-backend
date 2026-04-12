@@ -242,6 +242,24 @@ public interface StatisticsMapper {
 
     @Select({
             "<script>",
+            "SELECT CAST(ar.checkTime AS DATE) AS bucket, ae.type AS type, COUNT(*) AS total",
+            "FROM attendanceRecord ar",
+            "INNER JOIN attendanceException ae ON ae.recordId = ar.id",
+            "LEFT JOIN `user` u ON ar.userId = u.id",
+            "WHERE 1 = 1",
+            "<if test='deptId != null'> AND u.deptId = #{deptId}</if>",
+            "<if test='startTime != null'> AND ar.checkTime &gt;= #{startTime}</if>",
+            "<if test='endTime != null'> AND ar.checkTime &lt;= #{endTime}</if>",
+            "GROUP BY CAST(ar.checkTime AS DATE), ae.type",
+            "ORDER BY CAST(ar.checkTime AS DATE) ASC, COUNT(*) DESC, ae.type ASC",
+            "</script>"
+    })
+    List<Map<String, Object>> selectExceptionTypeTrendRows(@Param("deptId") Long deptId,
+                                                           @Param("startTime") LocalDateTime startTime,
+                                                           @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "<script>",
             "SELECT CAST(ar.checkTime AS DATE) AS bucket, COUNT(*) AS total",
             "FROM attendanceRecord ar",
             "INNER JOIN attendanceException ae ON ae.recordId = ar.id",

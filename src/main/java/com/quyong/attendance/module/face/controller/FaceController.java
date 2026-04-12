@@ -4,9 +4,13 @@ import com.quyong.attendance.common.api.Result;
 import com.quyong.attendance.common.api.ResultCode;
 import com.quyong.attendance.common.exception.BusinessException;
 import com.quyong.attendance.module.auth.model.AuthUser;
+import com.quyong.attendance.module.face.dto.FaceLivenessCompleteDTO;
 import com.quyong.attendance.module.face.dto.FaceRegisterDTO;
 import com.quyong.attendance.module.face.dto.FaceVerifyDTO;
+import com.quyong.attendance.module.face.service.FaceLivenessService;
 import com.quyong.attendance.module.face.service.FaceService;
+import com.quyong.attendance.module.face.vo.FaceLivenessCompleteVO;
+import com.quyong.attendance.module.face.vo.FaceLivenessSessionVO;
 import com.quyong.attendance.module.face.vo.FaceRegisterVO;
 import com.quyong.attendance.module.face.vo.FaceVerifyVO;
 import org.springframework.security.core.Authentication;
@@ -20,10 +24,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/face")
 public class FaceController {
 
+    private final FaceLivenessService faceLivenessService;
     private final FaceService faceService;
 
-    public FaceController(FaceService faceService) {
+    public FaceController(FaceLivenessService faceLivenessService, FaceService faceService) {
+        this.faceLivenessService = faceLivenessService;
         this.faceService = faceService;
+    }
+
+    @PostMapping("/liveness/session")
+    public Result<FaceLivenessSessionVO> createLivenessSession() {
+        return Result.success(faceLivenessService.createSession(currentAuthUser().getUserId()));
+    }
+
+    @PostMapping("/liveness/complete")
+    public Result<FaceLivenessCompleteVO> completeLiveness(@RequestBody(required = false) FaceLivenessCompleteDTO completeDTO) {
+        return Result.success(faceLivenessService.complete(currentAuthUser().getUserId(), completeDTO));
     }
 
     @PostMapping("/register")

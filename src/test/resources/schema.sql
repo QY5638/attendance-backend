@@ -58,6 +58,7 @@ CREATE TABLE attendanceRecord (
     checkType VARCHAR(20) NOT NULL,
     deviceId VARCHAR(64) NOT NULL,
     deviceInfo VARCHAR(128),
+    terminalId VARCHAR(64),
     ipAddr VARCHAR(64),
     location VARCHAR(255),
     clientLongitude DECIMAL(10,6),

@@ -29,6 +29,9 @@ public class AttendanceRecord {
     @TableField("deviceInfo")
     private String deviceInfo;
 
+    @TableField("terminalId")
+    private String terminalId;
+
     @TableField("ipAddr")
     private String ipAddr;
 
@@ -106,6 +109,14 @@ public class AttendanceRecord {
 
     public void setDeviceInfo(String deviceInfo) {
         this.deviceInfo = deviceInfo;
+    }
+
+    public String getTerminalId() {
+        return terminalId;
+    }
+
+    public void setTerminalId(String terminalId) {
+        this.terminalId = terminalId;
     }
 
     public String getLocation() {

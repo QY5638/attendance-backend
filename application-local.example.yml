@@ -12,6 +12,23 @@ spring:
     timeout: 3000ms
 
 app:
+  face:
+    provider: compreface
+    compreface-base-url: http://127.0.0.1:8000
+    compreface-api-key: <compreface-recognition-api-key>
+    compreface-subject-prefix: attendance-user-
+    match-score-threshold: 85.00
+    require-liveness: true
+    liveness-session-ttl-seconds: 180
+    liveness-proof-ttl-seconds: 180
+    liveness-action-count: 3
+    liveness-min-duration-ms: 3000
+    liveness-max-duration-ms: 45000
+    liveness-min-sample-count: 12
+    liveness-blink-score-threshold: 0.65
+    liveness-mouth-open-score-threshold: 0.65
+    liveness-turn-score-threshold: 0.70
+    metadata-secret: <face-metadata-secret>
   llm:
     provider: <llm-provider>
     base-url: <llm-base-url>

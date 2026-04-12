@@ -112,6 +112,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         FaceVerifyDTO faceVerifyDTO = new FaceVerifyDTO();
         faceVerifyDTO.setUserId(validatedDTO.getUserId());
         faceVerifyDTO.setImageData(validatedDTO.getImageData());
+        faceVerifyDTO.setLivenessToken(validatedDTO.getLivenessToken());
+        faceVerifyDTO.setConsumeLiveness(Boolean.TRUE);
         FaceVerifyVO faceVerifyVO = faceService.verify(faceVerifyDTO);
         if (!Boolean.TRUE.equals(faceVerifyVO.getRegistered()) || !Boolean.TRUE.equals(faceVerifyVO.getMatched())) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), faceVerifyVO.getMessage());
@@ -123,6 +125,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendanceRecord.setCheckType(validatedDTO.getCheckType());
         attendanceRecord.setDeviceId(validatedDTO.getDeviceId());
         attendanceRecord.setDeviceInfo(resolveComputerDeviceInfo(validatedDTO));
+        attendanceRecord.setTerminalId(resolveTerminalId(validatedDTO));
         attendanceRecord.setIpAddr(validatedDTO.getIpAddr());
         attendanceRecord.setLocation(resolvePunchLocation(device));
         attendanceRecord.setClientLongitude(validatedDTO.getClientLongitude());
@@ -285,7 +288,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 attendanceRecord.getCheckTime(),
                 attendanceRecord.getId()
         );
-        riskFeatures.setDeviceChanged(previousRecord != null && !Objects.equals(previousRecord.getDeviceId(), attendanceRecord.getDeviceId()));
+        riskFeatures.setDeviceChanged(previousRecord != null && !Objects.equals(previousRecord.getTerminalId(), attendanceRecord.getTerminalId()));
         riskFeatures.setLocationChanged(previousRecord != null && !Objects.equals(previousRecord.getLocation(), attendanceRecord.getLocation()));
 
         Long historyAbnormalCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
@@ -336,6 +339,13 @@ public class AttendanceServiceImpl implements AttendanceService {
             return device.getName().trim();
         }
         return device.getId();
+    }
+
+    private String resolveTerminalId(AttendanceCheckinDTO dto) {
+        if (dto != null && StringUtils.hasText(dto.getTerminalId())) {
+            return limitText(dto.getTerminalId().trim(), 64);
+        }
+        return null;
     }
 
     private void validatePunchRange(Device device, AttendanceCheckinDTO dto) {

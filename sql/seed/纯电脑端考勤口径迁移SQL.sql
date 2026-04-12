@@ -24,12 +24,12 @@ WHERE `id` = 'DEV-009';
 
 UPDATE `attendanceRecord`
 SET `deviceInfo` = CASE MOD(`userId`, 6)
-  WHEN 0 THEN 'Windows 11 · Google Chrome · 1920x1080'
-  WHEN 1 THEN 'Windows 10 · Microsoft Edge · 1920x1080'
-  WHEN 2 THEN 'macOS · Safari · 2560x1600'
-  WHEN 3 THEN 'Windows 11 · Mozilla Firefox · 2560x1440'
-  WHEN 4 THEN 'Windows 10 · Google Chrome · 1366x768'
-  ELSE 'Windows 11 · Microsoft Edge · 1600x900'
+  WHEN 0 THEN '系统 Windows 11 / 浏览器 Google Chrome / 分辨率 1920x1080'
+  WHEN 1 THEN '系统 Windows 10 / 浏览器 Microsoft Edge / 分辨率 1920x1080'
+  WHEN 2 THEN '系统 macOS / 浏览器 Safari / 分辨率 2560x1600'
+  WHEN 3 THEN '系统 Windows 11 / 浏览器 Mozilla Firefox / 分辨率 2560x1440'
+  WHEN 4 THEN '系统 Windows 10 / 浏览器 Google Chrome / 分辨率 1366x768'
+  ELSE '系统 Windows 11 / 浏览器 Microsoft Edge / 分辨率 1600x900'
 END
 WHERE (`deviceInfo` IS NULL OR `deviceInfo` = '')
   AND `deviceId` IN ('DEV-001', 'DEV-002', 'DEV-009');

@@ -19,3 +19,33 @@ spring:
 
 app:
   env: dev
+  auth:
+    access-token-ttl-hours: ${AUTH_ACCESS_TOKEN_TTL_HOURS:12}
+    refresh-token-ttl-days: ${AUTH_REFRESH_TOKEN_TTL_DAYS:7}
+    login-fail-window-minutes: ${AUTH_LOGIN_FAIL_WINDOW_MINUTES:15}
+    login-lock-minutes: ${AUTH_LOGIN_LOCK_MINUTES:15}
+    username-max-failures: ${AUTH_USERNAME_MAX_FAILURES:5}
+    ip-max-failures: ${AUTH_IP_MAX_FAILURES:12}
+  face:
+    provider: ${FACE_PROVIDER:compreface}
+    compreface-base-url: ${FACE_COMPREFACE_BASE_URL:http://127.0.0.1:8000}
+    compreface-api-key: ${FACE_COMPREFACE_API_KEY:change_me}
+    compreface-subject-prefix: ${FACE_COMPREFACE_SUBJECT_PREFIX:attendance-user-}
+    compreface-detect-prob-threshold: ${FACE_COMPREFACE_DETECT_PROB_THRESHOLD:0.80}
+    compreface-connect-timeout-ms: ${FACE_COMPREFACE_CONNECT_TIMEOUT_MS:5000}
+    compreface-read-timeout-ms: ${FACE_COMPREFACE_READ_TIMEOUT_MS:15000}
+    match-score-threshold: ${FACE_MATCH_SCORE_THRESHOLD:85.00}
+    quality-score-threshold: ${FACE_QUALITY_SCORE_THRESHOLD:70.00}
+    liveness-threshold: ${FACE_LIVENESS_THRESHOLD:0.80}
+    require-liveness: ${FACE_REQUIRE_LIVENESS:true}
+    liveness-session-ttl-seconds: ${FACE_LIVENESS_SESSION_TTL_SECONDS:180}
+    liveness-proof-ttl-seconds: ${FACE_LIVENESS_PROOF_TTL_SECONDS:180}
+    liveness-action-count: ${FACE_LIVENESS_ACTION_COUNT:3}
+    liveness-min-duration-ms: ${FACE_LIVENESS_MIN_DURATION_MS:3000}
+    liveness-max-duration-ms: ${FACE_LIVENESS_MAX_DURATION_MS:45000}
+    liveness-min-sample-count: ${FACE_LIVENESS_MIN_SAMPLE_COUNT:12}
+    liveness-blink-score-threshold: ${FACE_LIVENESS_BLINK_SCORE_THRESHOLD:0.65}
+    liveness-mouth-open-score-threshold: ${FACE_LIVENESS_MOUTH_OPEN_SCORE_THRESHOLD:0.65}
+    liveness-turn-score-threshold: ${FACE_LIVENESS_TURN_SCORE_THRESHOLD:0.70}
+    max-face-num: ${FACE_MAX_FACE_NUM:1}
+    metadata-secret: ${FACE_METADATA_SECRET:change_me_change_me}

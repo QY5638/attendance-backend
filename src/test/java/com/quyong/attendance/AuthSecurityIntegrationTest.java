@@ -20,7 +20,9 @@ import java.time.Duration;
 import java.time.Instant;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -94,6 +96,7 @@ class AuthSecurityIntegrationTest {
         insertUser(1001L, "zhangsan", "张三", 2L, 1, "123456");
         insertUser(1002L, "disabled", "禁用用户", 2L, 0, "123456");
         insertUser(1003L, "roleDisabled", "禁用角色用户", 3L, 1, "123456");
+        insertUser(1004L, "rateLimitUser", "限流测试用户", 2L, 1, "123456");
     }
 
     @Test
@@ -130,6 +133,7 @@ class AuthSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
                 .andExpect(jsonPath("$.data.roleCode").value("ADMIN"))
                 .andExpect(jsonPath("$.data.realName").value("系统管理员"));
 
@@ -190,6 +194,118 @@ class AuthSecurityIntegrationTest {
         assertTrue(authUser.getStatus() == 1);
         assertNotNull(authUser.getExpireAt());
         assertTrue(authUser.getExpireAt().isAfter(Instant.now()));
+    }
+
+    @Test
+    void shouldRefreshTokenAndInvalidateOldAccessToken() throws Exception {
+        JsonNode loginData = loginAndExtractAuthPayload("admin", "123456");
+        String accessToken = loginData.path("token").asText();
+        String refreshToken = loginData.path("refreshToken").asText();
+
+        MvcResult mvcResult = mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.refreshToken").isString())
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString()).path("data");
+        String nextAccessToken = response.path("token").asText();
+        String nextRefreshToken = response.path("refreshToken").asText();
+
+        assertNotEquals(accessToken, nextAccessToken);
+        assertNotEquals(refreshToken, nextRefreshToken);
+
+        mockMvc.perform(get("/api/user/list")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        mockMvc.perform(get("/api/user/list")
+                        .header("Authorization", "Bearer " + nextAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        Integer refreshCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'TOKEN_REFRESH'",
+                Integer.class,
+                9001L
+        );
+        assertEquals(1, refreshCount);
+    }
+
+    @Test
+    void shouldLogoutAndInvalidateAccessAndRefreshTokens() throws Exception {
+        JsonNode loginData = loginAndExtractAuthPayload("admin", "123456");
+        String accessToken = loginData.path("token").asText();
+        String refreshToken = loginData.path("refreshToken").asText();
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("success"));
+
+        mockMvc.perform(get("/api/user/list")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(401));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401))
+                .andExpect(jsonPath("$.message").value("登录状态已失效，请重新登录"));
+
+        Integer logoutCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'LOGOUT'",
+                Integer.class,
+                9001L
+        );
+        assertEquals(1, logoutCount);
+    }
+
+    @Test
+    void shouldLockLoginAfterTooManyFailures() throws Exception {
+        for (int index = 0; index < 4; index++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(APPLICATION_JSON)
+                            .content("{\"username\":\"rateLimitUser\",\"password\":\"wrong\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(400))
+                    .andExpect(jsonPath("$.message").value("用户名或密码错误"));
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"username\":\"rateLimitUser\",\"password\":\"wrong\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("登录尝试过于频繁，请15分钟后重试"));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"username\":\"rateLimitUser\",\"password\":\"123456\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("登录尝试过于频繁，请15分钟后重试"));
+
+        Integer failureCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE type = 'LOGIN_FAILURE'",
+                Integer.class
+        );
+        Integer lockedCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operationLog WHERE type = 'LOGIN_LOCKED'",
+                Integer.class
+        );
+        assertEquals(5, failureCount);
+        assertEquals(1, lockedCount);
     }
 
     @Test
@@ -328,6 +444,10 @@ class AuthSecurityIntegrationTest {
     }
 
     private String loginAndExtractToken(String username, String password) throws Exception {
+        return loginAndExtractAuthPayload(username, password).path("token").asText();
+    }
+
+    private JsonNode loginAndExtractAuthPayload(String username, String password) throws Exception {
         MvcResult mvcResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(APPLICATION_JSON)
                         .content(String.format("{\"username\":\"%s\",\"password\":\"%s\"}", username, password)))
@@ -335,6 +455,6 @@ class AuthSecurityIntegrationTest {
                 .andReturn();
 
         JsonNode response = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
-        return response.path("data").path("token").asText();
+        return response.path("data");
     }
 }

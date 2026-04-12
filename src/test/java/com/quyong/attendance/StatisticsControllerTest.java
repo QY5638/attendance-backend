@@ -181,6 +181,24 @@ class StatisticsControllerTest {
     }
 
     @Test
+    void shouldReturnExceptionTypeTrend() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/statistics/exception-type-trend")
+                        .param("deptId", "1")
+                        .param("startDate", "2026-03-25")
+                        .param("endDate", "2026-03-26")
+                        .param("periodType", "DAY")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.labels.length()").value(2))
+                .andExpect(jsonPath("$.data.labels[0]").value("2026-03-25"))
+                .andExpect(jsonPath("$.data.items[0].type").value("LATE"))
+                .andExpect(jsonPath("$.data.items[0].values.length()").value(2));
+    }
+
+    @Test
     void shouldAggregateExceptionTrendByWeek() throws Exception {
         String adminToken = loginAndExtractToken("admin", "123456");
 
@@ -303,6 +321,24 @@ class StatisticsControllerTest {
             assertEquals("技术部", workbook.getSheetAt(0).getRow(10).getCell(2).getStringCellValue());
             assertEquals("行政部", workbook.getSheetAt(0).getRow(11).getCell(2).getStringCellValue());
         }
+    }
+
+    @Test
+    void shouldExportWarningDashboardStatistics() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/statistics/export")
+                        .param("exportType", "WARNING_DASHBOARD")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", containsString("text/csv")))
+                .andExpect(content().string(containsString("预警看板,预警总量")))
+                .andExpect(content().string(containsString("预警看板,超时24-48小时")))
+                .andExpect(content().string(containsString("预警看板,高风险人员")))
+                .andExpect(content().string(containsString("高风险人员排行")))
+                .andExpect(content().string(containsString("异常人员画像")))
+                .andExpect(content().string(containsString("风险层级")))
+                .andExpect(content().string(containsString("处置超时提醒")));
     }
 
     @Test

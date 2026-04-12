@@ -3,6 +3,7 @@ package com.quyong.attendance.module.auth.store;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quyong.attendance.module.auth.model.AuthUser;
+import com.quyong.attendance.module.auth.model.RefreshTokenSession;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.time.Instant;
 public class RedisTokenStore implements TokenStore {
 
     private static final String KEY_PREFIX = "auth:token:";
+    private static final String REFRESH_KEY_PREFIX = "auth:refresh:";
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
@@ -54,8 +56,56 @@ public class RedisTokenStore implements TokenStore {
         }
     }
 
+    @Override
+    public void delete(String token) {
+        if (token == null) {
+            return;
+        }
+        stringRedisTemplate.delete(buildKey(token));
+    }
+
+    @Override
+    public void storeRefreshToken(String refreshToken, RefreshTokenSession refreshTokenSession, Duration ttl) {
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    buildRefreshKey(refreshToken),
+                    objectMapper.writeValueAsString(refreshTokenSession),
+                    ttl
+            );
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("refresh token 序列化失败", exception);
+        }
+    }
+
+    @Override
+    public RefreshTokenSession getRefreshToken(String refreshToken) {
+        String key = buildRefreshKey(refreshToken);
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(value, RefreshTokenSession.class);
+        } catch (IOException exception) {
+            stringRedisTemplate.delete(key);
+            return null;
+        }
+    }
+
+    @Override
+    public void deleteRefreshToken(String refreshToken) {
+        if (refreshToken == null) {
+            return;
+        }
+        stringRedisTemplate.delete(buildRefreshKey(refreshToken));
+    }
+
     private String buildKey(String token) {
         return KEY_PREFIX + token;
+    }
+
+    private String buildRefreshKey(String refreshToken) {
+        return REFRESH_KEY_PREFIX + refreshToken;
     }
 
     static class TokenSession {

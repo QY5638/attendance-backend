@@ -6,6 +6,8 @@ public class OperationLogVO {
 
     private Long id;
     private Long userId;
+    private String username;
+    private String realName;
     private String type;
     private String content;
     private LocalDateTime operationTime;
@@ -24,6 +26,22 @@ public class OperationLogVO {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getRealName() {
+        return realName;
+    }
+
+    public void setRealName(String realName) {
+        this.realName = realName;
     }
 
     public String getType() {

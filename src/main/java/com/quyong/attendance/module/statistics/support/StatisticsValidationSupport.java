@@ -75,6 +75,7 @@ public class StatisticsValidationSupport {
         safe.setPageNum(resolvePageNum(safe.getPageNum()));
         safe.setPageSize(resolvePageSize(safe.getPageSize()));
         safe.setType(normalize(safe.getType()));
+        safe.setTypes(normalize(safe.getTypes()));
         return safe;
     }
 
@@ -83,6 +84,7 @@ public class StatisticsValidationSupport {
         safe.setPageNum(resolvePageNum(safe.getPageNum()));
         safe.setPageSize(resolvePageSize(safe.getPageSize()));
         safe.setType(normalize(safe.getType()));
+        safe.setTypes(normalize(safe.getTypes()));
         safe.setStartDate(normalize(safe.getStartDate()));
         safe.setEndDate(normalize(safe.getEndDate()));
         return safe;
@@ -135,6 +137,7 @@ public class StatisticsValidationSupport {
         if (!"PERSONAL".equals(normalizedValue)
                 && !"DEPARTMENT".equals(normalizedValue)
                 && !"TREND".equals(normalizedValue)
+                && !"WARNING_DASHBOARD".equals(normalizedValue)
                 && !"AUDIT".equals(normalizedValue)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "导出类型不合法");
         }
