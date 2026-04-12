@@ -494,6 +494,99 @@ class UserManagementIntegrationTest {
     }
 
     @Test
+    void shouldReturnCurrentUserProfileForEmployee() throws Exception {
+        String token = loginAndExtractToken("alice", "123456");
+
+        mockMvc.perform(get("/api/user/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(1001))
+                .andExpect(jsonPath("$.data.username").value("alice"))
+                .andExpect(jsonPath("$.data.realName").value("王五"))
+                .andExpect(jsonPath("$.data.gender").value("男"))
+                .andExpect(jsonPath("$.data.phone").value("13800000000"))
+                .andExpect(jsonPath("$.data.deptId").value(1))
+                .andExpect(jsonPath("$.data.deptName").value("研发部"))
+                .andExpect(jsonPath("$.data.roleId").value(2))
+                .andExpect(jsonPath("$.data.roleName").value("员工"))
+                .andExpect(jsonPath("$.data.status").value(1));
+    }
+
+    @Test
+    void shouldUpdateCurrentUserProfileForEmployee() throws Exception {
+        String token = loginAndExtractToken("alice", "123456");
+
+        mockMvc.perform(put("/api/user/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"realName\":\"  王小五  \",\"gender\":\"女\",\"phone\":\" 13999990000 \",\"password\":\" 654321 \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(1001))
+                .andExpect(jsonPath("$.data.username").value("alice"))
+                .andExpect(jsonPath("$.data.realName").value("王小五"))
+                .andExpect(jsonPath("$.data.gender").value("女"))
+                .andExpect(jsonPath("$.data.phone").value("13999990000"))
+                .andExpect(jsonPath("$.data.deptId").value(1))
+                .andExpect(jsonPath("$.data.deptName").value("研发部"))
+                .andExpect(jsonPath("$.data.roleId").value(2))
+                .andExpect(jsonPath("$.data.roleName").value("员工"))
+                .andExpect(jsonPath("$.data.status").value(1));
+
+        String realName = jdbcTemplate.queryForObject(
+                "SELECT realName FROM user WHERE id = ?",
+                String.class,
+                1001L
+        );
+        String gender = jdbcTemplate.queryForObject(
+                "SELECT gender FROM user WHERE id = ?",
+                String.class,
+                1001L
+        );
+        String phone = jdbcTemplate.queryForObject(
+                "SELECT phone FROM user WHERE id = ?",
+                String.class,
+                1001L
+        );
+        String encodedPassword = jdbcTemplate.queryForObject(
+                "SELECT password FROM user WHERE id = ?",
+                String.class,
+                1001L
+        );
+        Long deptId = jdbcTemplate.queryForObject(
+                "SELECT deptId FROM user WHERE id = ?",
+                Long.class,
+                1001L
+        );
+        Long roleId = jdbcTemplate.queryForObject(
+                "SELECT roleId FROM user WHERE id = ?",
+                Long.class,
+                1001L
+        );
+
+        assertEquals("王小五", realName);
+        assertEquals("女", gender);
+        assertEquals("13999990000", phone);
+        assertTrue(PASSWORD_ENCODER.matches("654321", encodedPassword));
+        assertEquals(Long.valueOf(1L), deptId);
+        assertEquals(Long.valueOf(2L), roleId);
+    }
+
+    @Test
+    void shouldFailUpdateCurrentUserProfileWhenRealNameIsBlank() throws Exception {
+        String token = loginAndExtractToken("alice", "123456");
+
+        mockMvc.perform(put("/api/user/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"realName\":\"   \",\"gender\":\"男\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("姓名不能为空"));
+    }
+
+    @Test
     void shouldDeleteUserWhenUserExists() throws Exception {
         String token = loginAndExtractToken("admin", "123456");
 

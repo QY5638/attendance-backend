@@ -111,6 +111,13 @@ public class FaceRegisterApprovalServiceImpl implements FaceRegisterApprovalServ
             return vo;
         }
 
+        if (STATUS_USED.equals(status)) {
+            vo.setCanRegister(Boolean.FALSE);
+            vo.setCanApply(Boolean.TRUE);
+            vo.setMessage("上一次人脸重录申请已使用，如需再次采集，请重新提交申请");
+            return vo;
+        }
+
         vo.setCanRegister(Boolean.FALSE);
         vo.setCanApply(Boolean.TRUE);
         vo.setMessage("当前账号已录入人脸，如需重新采集，请先提交申请并等待管理员审批");

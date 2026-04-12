@@ -1,15 +1,24 @@
 package com.quyong.attendance.module.face.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.LocalDateTime;
 
 public class FaceRegisterApprovalVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
+
     private String userName;
     private String departmentName;
     private String reason;
     private String status;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long reviewUserId;
     private String reviewUserName;
     private String reviewComment;

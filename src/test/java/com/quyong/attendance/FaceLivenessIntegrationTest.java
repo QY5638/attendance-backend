@@ -19,6 +19,7 @@ import java.util.Iterator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -195,6 +196,8 @@ class FaceLivenessIntegrationTest {
                         .content("{\"id\":" + approvalId + ",\"status\":\"APPROVED\",\"reviewComment\":\"同意本次重录申请\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(String.valueOf(approvalId)))
+                .andExpect(jsonPath("$.data.userId").value("1001"))
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
 
         JsonNode proof = completeLiveness(employeeToken, "face-image-approved");
@@ -212,6 +215,16 @@ class FaceLivenessIntegrationTest {
                 approvalId
         );
         assertEquals("USED", approvalStatus);
+
+        mockMvc.perform(get("/api/face/register-approval/status")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.userId").value("1001"))
+                .andExpect(jsonPath("$.data.status").value("USED"))
+                .andExpect(jsonPath("$.data.canRegister").value(false))
+                .andExpect(jsonPath("$.data.canApply").value(true))
+                .andExpect(jsonPath("$.data.message").value("上一次人脸重录申请已使用，如需再次采集，请重新提交申请"));
     }
 
     private JsonNode completeLiveness(String token, String imageData) throws Exception {

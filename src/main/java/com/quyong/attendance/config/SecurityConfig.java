@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/attendance/checkin", "/api/attendance/device-options", "/api/attendance/record/**", "/api/attendance/repair")
                 .hasAnyRole("ADMIN", "EMPLOYEE")
+                .antMatchers("/api/user/me").hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/statistics/personal", "/api/statistics/summary").hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/attendance/list").hasRole("ADMIN")
                 .antMatchers("/api/**").hasRole("ADMIN")

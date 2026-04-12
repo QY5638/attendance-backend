@@ -1,13 +1,21 @@
 package com.quyong.attendance.module.user.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.quyong.attendance.common.api.ResultCode;
+import com.quyong.attendance.common.exception.BusinessException;
+import com.quyong.attendance.module.department.entity.Department;
+import com.quyong.attendance.module.department.mapper.DepartmentMapper;
+import com.quyong.attendance.module.role.entity.Role;
+import com.quyong.attendance.module.role.mapper.RoleMapper;
 import com.quyong.attendance.module.user.dto.UserQueryDTO;
+import com.quyong.attendance.module.user.dto.UserProfileUpdateDTO;
 import com.quyong.attendance.module.user.dto.UserSaveDTO;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.mapper.UserMapper;
 import com.quyong.attendance.module.user.service.UserService;
 import com.quyong.attendance.module.user.support.UserPasswordSupport;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
+import com.quyong.attendance.module.user.vo.UserProfileVO;
 import com.quyong.attendance.module.user.vo.UserVO;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,13 +27,19 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
+    private final DepartmentMapper departmentMapper;
+    private final RoleMapper roleMapper;
     private final UserValidationSupport userValidationSupport;
     private final UserPasswordSupport userPasswordSupport;
 
     public UserServiceImpl(UserMapper userMapper,
+                           DepartmentMapper departmentMapper,
+                           RoleMapper roleMapper,
                            UserValidationSupport userValidationSupport,
                            UserPasswordSupport userPasswordSupport) {
         this.userMapper = userMapper;
+        this.departmentMapper = departmentMapper;
+        this.roleMapper = roleMapper;
         this.userValidationSupport = userValidationSupport;
         this.userPasswordSupport = userPasswordSupport;
     }
@@ -91,6 +105,25 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserProfileVO currentProfile(Long currentUserId) {
+        return toProfileVO(userValidationSupport.requireExistingUser(currentUserId));
+    }
+
+    @Override
+    public UserProfileVO updateCurrentProfile(Long currentUserId, UserProfileUpdateDTO updateDTO) {
+        User existingUser = userValidationSupport.requireExistingUser(currentUserId);
+        UserProfileUpdateDTO validatedUpdateDTO = validateProfileUpdate(updateDTO);
+
+        existingUser.setPassword(userPasswordSupport.resolvePasswordForUpdate(validatedUpdateDTO.getPassword(), existingUser.getPassword()));
+        existingUser.setRealName(validatedUpdateDTO.getRealName());
+        existingUser.setGender(validatedUpdateDTO.getGender());
+        existingUser.setPhone(validatedUpdateDTO.getPhone());
+        userMapper.updateById(existingUser);
+
+        return toProfileVO(userMapper.selectById(existingUser.getId()));
+    }
+
+    @Override
     public void delete(Long id) {
         userValidationSupport.requireExistingUser(id);
         userMapper.deleteById(id);
@@ -112,5 +145,44 @@ public class UserServiceImpl implements UserService {
         vo.setStatus(user.getStatus());
         vo.setCreateTime(user.getCreateTime());
         return vo;
+    }
+
+    private UserProfileVO toProfileVO(User user) {
+        UserProfileVO vo = new UserProfileVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setRealName(user.getRealName());
+        vo.setGender(user.getGender());
+        vo.setPhone(user.getPhone());
+        vo.setDeptId(user.getDeptId());
+        vo.setRoleId(user.getRoleId());
+        vo.setStatus(user.getStatus());
+        vo.setCreateTime(user.getCreateTime());
+
+        Department department = user.getDeptId() == null ? null : departmentMapper.selectById(user.getDeptId());
+        vo.setDeptName(department == null ? "-" : department.getName());
+
+        Role role = user.getRoleId() == null ? null : roleMapper.selectRoleById(user.getRoleId());
+        vo.setRoleName(role == null ? "-" : role.getName());
+        return vo;
+    }
+
+    private UserProfileUpdateDTO validateProfileUpdate(UserProfileUpdateDTO updateDTO) {
+        UserProfileUpdateDTO target = updateDTO == null ? new UserProfileUpdateDTO() : updateDTO;
+        String realName = normalize(target.getRealName());
+        if (!StringUtils.hasText(realName)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "姓名不能为空");
+        }
+
+        String gender = normalize(target.getGender());
+        if (!"男".equals(gender) && !"女".equals(gender)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "性别不合法");
+        }
+
+        target.setRealName(realName);
+        target.setGender(gender);
+        target.setPhone(normalize(target.getPhone()));
+        target.setPassword(normalize(target.getPassword()));
+        return target;
     }
 }

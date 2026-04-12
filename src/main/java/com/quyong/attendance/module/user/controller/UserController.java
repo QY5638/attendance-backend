@@ -1,10 +1,17 @@
 package com.quyong.attendance.module.user.controller;
 
 import com.quyong.attendance.common.api.Result;
+import com.quyong.attendance.common.api.ResultCode;
+import com.quyong.attendance.common.exception.BusinessException;
+import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.user.dto.UserQueryDTO;
+import com.quyong.attendance.module.user.dto.UserProfileUpdateDTO;
 import com.quyong.attendance.module.user.dto.UserSaveDTO;
 import com.quyong.attendance.module.user.service.UserService;
+import com.quyong.attendance.module.user.vo.UserProfileVO;
 import com.quyong.attendance.module.user.vo.UserVO;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,9 +48,27 @@ public class UserController {
         return Result.success(userService.update(saveDTO));
     }
 
+    @GetMapping("/me")
+    public Result<UserProfileVO> me() {
+        return Result.success(userService.currentProfile(currentAuthUser().getUserId()));
+    }
+
+    @PutMapping("/me")
+    public Result<UserProfileVO> updateMe(@RequestBody(required = false) UserProfileUpdateDTO updateDTO) {
+        return Result.success(userService.updateCurrentProfile(currentAuthUser().getUserId(), updateDTO));
+    }
+
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         userService.delete(id);
         return Result.success(null);
+    }
+
+    private AuthUser currentAuthUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthUser)) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED.getCode(), "登录状态已失效，请重新登录");
+        }
+        return (AuthUser) authentication.getPrincipal();
     }
 }
