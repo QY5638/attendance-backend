@@ -51,6 +51,8 @@ class StatisticsControllerTest {
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("DELETE FROM operationLog");
+        jdbcTemplate.execute("DELETE FROM notificationRecord");
+        jdbcTemplate.execute("DELETE FROM warningInteractionRecord");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM warningRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
@@ -512,7 +514,7 @@ class StatisticsControllerTest {
                                            String description,
                                            String processStatus) {
         jdbcTemplate.update(
-                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                "INSERT INTO attendanceException (id, recordId, userId, type, riskLevel, sourceType, description, processStatus, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT checkTime FROM attendanceRecord WHERE id = ?), CURRENT_TIMESTAMP))",
                 id,
                 recordId,
                 userId,
@@ -520,7 +522,8 @@ class StatisticsControllerTest {
                 riskLevel,
                 sourceType,
                 description,
-                processStatus
+                processStatus,
+                recordId
         );
     }
 
@@ -531,7 +534,7 @@ class StatisticsControllerTest {
                                          String reasonSummary,
                                          String actionSuggestion) {
         jdbcTemplate.update(
-                "INSERT INTO exceptionAnalysis (id, exceptionId, promptTemplateId, inputSummary, modelResult, modelConclusion, confidenceScore, decisionReason, suggestion, reasonSummary, actionSuggestion, similarCaseSummary, promptVersion, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                "INSERT INTO exceptionAnalysis (id, exceptionId, promptTemplateId, inputSummary, modelResult, modelConclusion, confidenceScore, decisionReason, suggestion, reasonSummary, actionSuggestion, similarCaseSummary, promptVersion, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT createTime FROM attendanceException WHERE id = ?), CURRENT_TIMESTAMP))",
                 id,
                 exceptionId,
                 null,
@@ -544,7 +547,8 @@ class StatisticsControllerTest {
                 reasonSummary,
                 actionSuggestion,
                 "similar-case",
-                "v1.0"
+                "v1.0",
+                exceptionId
         );
     }
 

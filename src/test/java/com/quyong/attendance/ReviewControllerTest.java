@@ -45,6 +45,8 @@ class ReviewControllerTest {
     void setUp() {
         reset(attendanceExceptionMapper);
         jdbcTemplate.execute("DELETE FROM operationLog");
+        jdbcTemplate.execute("DELETE FROM notificationRecord");
+        jdbcTemplate.execute("DELETE FROM warningInteractionRecord");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM warningRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
