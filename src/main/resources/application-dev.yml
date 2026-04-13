@@ -49,3 +49,5 @@ app:
     liveness-turn-score-threshold: ${FACE_LIVENESS_TURN_SCORE_THRESHOLD:0.70}
     max-face-num: ${FACE_MAX_FACE_NUM:1}
     metadata-secret: ${FACE_METADATA_SECRET:change_me_change_me}
+  llm:
+    low-confidence-threshold: ${LLM_LOW_CONFIDENCE_THRESHOLD:75}

@@ -24,6 +24,9 @@ public class WarningVO {
     private LocalDateTime sendTime;
     private Boolean overdue;
     private Long overdueMinutes;
+    private String interactionStatus;
+    private LocalDateTime employeeReplyDeadline;
+    private LocalDateTime lastInteractTime;
 
     public Long getId() {
         return id;
@@ -127,5 +130,29 @@ public class WarningVO {
 
     public void setOverdueMinutes(Long overdueMinutes) {
         this.overdueMinutes = overdueMinutes;
+    }
+
+    public String getInteractionStatus() {
+        return interactionStatus;
+    }
+
+    public void setInteractionStatus(String interactionStatus) {
+        this.interactionStatus = interactionStatus;
+    }
+
+    public LocalDateTime getEmployeeReplyDeadline() {
+        return employeeReplyDeadline;
+    }
+
+    public void setEmployeeReplyDeadline(LocalDateTime employeeReplyDeadline) {
+        this.employeeReplyDeadline = employeeReplyDeadline;
+    }
+
+    public LocalDateTime getLastInteractTime() {
+        return lastInteractTime;
+    }
+
+    public void setLastInteractTime(LocalDateTime lastInteractTime) {
+        this.lastInteractTime = lastInteractTime;
     }
 }

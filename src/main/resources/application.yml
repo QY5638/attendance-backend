@@ -21,3 +21,12 @@ logging:
   level:
     root: info
     com.quyong.attendance: debug
+
+app:
+  notification:
+    stream-timeout-ms: 600000
+    default-reply-timeout-hours: 24
+    reminder-cooldown-minutes: 240
+    reminder-fixed-delay-ms: 300000
+  attendance:
+    absence-check-fixed-delay-ms: 3600000

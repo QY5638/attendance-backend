@@ -47,6 +47,11 @@ public class ExceptionController {
         return Result.success(exceptionAnalysisOrchestrator.complexCheck(dto));
     }
 
+    @PostMapping("/backfill-absence-context")
+    public Result<Integer> backfillAbsenceContext() {
+        return Result.success(Integer.valueOf(exceptionAnalysisOrchestrator.backfillAbsenceContext()));
+    }
+
     @GetMapping("/list")
     public Result<PageResult<AttendanceExceptionVO>> list(ExceptionQueryDTO queryDTO) {
         return Result.success(exceptionQueryService.list(queryDTO));

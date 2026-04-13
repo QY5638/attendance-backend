@@ -3,6 +3,7 @@ package com.quyong.attendance.module.attendance.dto;
 public class AttendanceRepairDTO {
 
     private Long userId;
+    private Long recordId;
     private String checkType;
     private String checkTime;
     private String repairReason;
@@ -13,6 +14,14 @@ public class AttendanceRepairDTO {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public Long getRecordId() {
+        return recordId;
+    }
+
+    public void setRecordId(Long recordId) {
+        this.recordId = recordId;
     }
 
     public String getCheckType() {

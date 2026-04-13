@@ -11,15 +11,15 @@ import org.springframework.stereotype.Component;
 public class ExceptionValidationSupport {
 
     public RuleCheckDTO validateRuleCheck(RuleCheckDTO dto) {
-        if (dto == null || dto.getRecordId() == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录ID不能为空");
+        if (dto == null || (dto.getRecordId() == null && dto.getExceptionId() == null)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录ID或异常ID不能为空");
         }
         return dto;
     }
 
     public ComplexCheckDTO validateComplexCheck(ComplexCheckDTO dto) {
-        if (dto == null || dto.getRecordId() == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录ID不能为空");
+        if (dto == null || (dto.getRecordId() == null && dto.getExceptionId() == null)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "考勤记录ID或异常ID不能为空");
         }
         return dto;
     }

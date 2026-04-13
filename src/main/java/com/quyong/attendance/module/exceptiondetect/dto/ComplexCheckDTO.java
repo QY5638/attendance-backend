@@ -3,6 +3,7 @@ package com.quyong.attendance.module.exceptiondetect.dto;
 public class ComplexCheckDTO {
 
     private Long recordId;
+    private Long exceptionId;
     private Long userId;
     private RiskFeaturesDTO riskFeatures;
 
@@ -12,6 +13,14 @@ public class ComplexCheckDTO {
 
     public void setRecordId(Long recordId) {
         this.recordId = recordId;
+    }
+
+    public Long getExceptionId() {
+        return exceptionId;
+    }
+
+    public void setExceptionId(Long exceptionId) {
+        this.exceptionId = exceptionId;
     }
 
     public Long getUserId() {

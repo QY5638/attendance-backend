@@ -5,7 +5,9 @@ import com.quyong.attendance.common.exception.BusinessException;
 import com.quyong.attendance.module.attendance.dto.AttendanceCheckinDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceListQueryDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceRecordQueryDTO;
+import com.quyong.attendance.module.attendance.dto.AttendanceRepairQueryDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceRepairDTO;
+import com.quyong.attendance.module.attendance.dto.AttendanceRepairReviewDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -20,6 +22,10 @@ public class AttendanceValidationSupport {
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final String STATUS_REPAIR_PENDING = "PENDING";
+    private static final String STATUS_REPAIR_APPROVED = "APPROVED";
+    private static final String STATUS_REPAIR_REJECTED = "REJECTED";
+    private static final int REVIEW_COMMENT_MAX_LENGTH = 200;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -69,6 +75,34 @@ public class AttendanceValidationSupport {
         target.setStatus(normalize(target.getStatus()));
         target.setStartDate(normalize(target.getStartDate()));
         target.setEndDate(normalize(target.getEndDate()));
+        return target;
+    }
+
+    public AttendanceRepairQueryDTO validateRepairQuery(AttendanceRepairQueryDTO dto) {
+        AttendanceRepairQueryDTO target = dto == null ? new AttendanceRepairQueryDTO() : dto;
+        target.setPageNum(resolvePageNum(target.getPageNum()));
+        target.setPageSize(resolvePageSize(target.getPageSize()));
+        target.setKeyword(normalize(target.getKeyword()));
+        target.setCheckType(normalizeCheckType(target.getCheckType()));
+        target.setStatus(normalizeRepairStatus(target.getStatus(), false));
+        target.setStartDate(normalize(target.getStartDate()));
+        target.setEndDate(normalize(target.getEndDate()));
+        return target;
+    }
+
+    public AttendanceRepairReviewDTO validateRepairReview(AttendanceRepairReviewDTO dto) {
+        AttendanceRepairReviewDTO target = dto == null ? new AttendanceRepairReviewDTO() : dto;
+        target.setStatus(normalizeRepairStatus(target.getStatus(), true));
+        if (STATUS_REPAIR_PENDING.equals(target.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "处理结果不合法");
+        }
+        target.setReviewComment(normalize(target.getReviewComment()));
+        if (STATUS_REPAIR_REJECTED.equals(target.getStatus()) && !StringUtils.hasText(target.getReviewComment())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "驳回补卡申请时请填写处理说明");
+        }
+        if (StringUtils.hasText(target.getReviewComment()) && target.getReviewComment().length() > REVIEW_COMMENT_MAX_LENGTH) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "处理说明不能超过200个字符");
+        }
         return target;
     }
 
@@ -122,6 +156,22 @@ public class AttendanceValidationSupport {
             return null;
         }
         return requireCheckType(normalizedCheckType);
+    }
+
+    private String normalizeRepairStatus(String status, boolean required) {
+        String normalizedStatus = normalize(status);
+        if (!StringUtils.hasText(normalizedStatus)) {
+            if (required) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "处理结果不能为空");
+            }
+            return null;
+        }
+        if (!STATUS_REPAIR_PENDING.equals(normalizedStatus)
+                && !STATUS_REPAIR_APPROVED.equals(normalizedStatus)
+                && !STATUS_REPAIR_REJECTED.equals(normalizedStatus)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "补卡申请状态不合法");
+        }
+        return normalizedStatus;
     }
 
     private Integer resolvePageNum(Integer pageNum) {

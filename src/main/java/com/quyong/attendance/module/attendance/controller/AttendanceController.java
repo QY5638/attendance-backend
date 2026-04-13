@@ -8,7 +8,9 @@ import com.quyong.attendance.common.exception.BusinessException;
 import com.quyong.attendance.module.attendance.dto.AttendanceCheckinDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceListQueryDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceRecordQueryDTO;
+import com.quyong.attendance.module.attendance.dto.AttendanceRepairQueryDTO;
 import com.quyong.attendance.module.attendance.dto.AttendanceRepairDTO;
+import com.quyong.attendance.module.attendance.dto.AttendanceRepairReviewDTO;
 import com.quyong.attendance.module.attendance.service.AttendanceService;
 import com.quyong.attendance.module.attendance.vo.AttendanceCheckinVO;
 import com.quyong.attendance.module.attendance.vo.AttendanceDeviceOptionVO;
@@ -85,6 +87,18 @@ public class AttendanceController {
         AttendanceRepairDTO target = dto == null ? new AttendanceRepairDTO() : dto;
         target.setUserId(currentAuthUser().getUserId());
         return Result.success(attendanceService.repair(target));
+    }
+
+    @GetMapping("/repair/list")
+    public Result<PageResult<AttendanceRepairVO>> repairList(AttendanceRepairQueryDTO dto) {
+        return Result.success(attendanceService.repairList(dto));
+    }
+
+    @PostMapping("/repair/{repairId}/review")
+    public Result<AttendanceRepairVO> reviewRepair(@PathVariable Long repairId,
+                                                   @RequestBody(required = false) AttendanceRepairReviewDTO dto) {
+        AttendanceRepairReviewDTO target = dto == null ? new AttendanceRepairReviewDTO() : dto;
+        return Result.success(attendanceService.reviewRepair(repairId, target));
     }
 
     private AuthUser currentAuthUser() {

@@ -23,6 +23,14 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
                          @Param("checkType") String checkType,
                          @Param("checkTime") LocalDateTime checkTime);
 
+    @Select("SELECT id FROM attendanceRecord WHERE userId = #{userId} AND checkType = #{checkType} AND checkTime = #{checkTime} ORDER BY id DESC LIMIT 1")
+    Long selectSameRecordId(@Param("userId") Long userId,
+                            @Param("checkType") String checkType,
+                            @Param("checkTime") LocalDateTime checkTime);
+
+    @Select("SELECT id,userId,checkTime,checkType,deviceId,deviceInfo,terminalId,ipAddr,location,clientLongitude,clientLatitude,longitude,latitude,faceScore,status,createTime FROM attendanceRecord WHERE userId = #{userId} ORDER BY checkTime DESC, id DESC LIMIT 1")
+    AttendanceRecord selectLatestByUser(@Param("userId") Long userId);
+
     @Select({
             "<script>",
             "SELECT COUNT(*) FROM attendanceRecord ar",
@@ -38,7 +46,8 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
     @Select({
             "<script>",
             "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status,",
-            "(SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType",
+            "(SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType,",
+            "(SELECT apr.status FROM attendanceRepair apr WHERE apr.recordId = ar.id ORDER BY apr.id DESC LIMIT 1) AS repairStatus",
             "FROM attendanceRecord ar",
             "LEFT JOIN `user` u ON ar.userId = u.id",
             "WHERE ar.userId = #{userId}",
@@ -77,7 +86,8 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
     @Select({
             "<script>",
-            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status",
+            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status,",
+            "(SELECT apr.status FROM attendanceRepair apr WHERE apr.recordId = ar.id ORDER BY apr.id DESC LIMIT 1) AS repairStatus",
             "FROM attendanceRecord ar",
             "LEFT JOIN `user` u ON ar.userId = u.id",
             "WHERE 1 = 1",

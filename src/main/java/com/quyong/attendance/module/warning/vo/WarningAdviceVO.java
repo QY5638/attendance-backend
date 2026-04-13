@@ -21,6 +21,9 @@ public class WarningAdviceVO {
     private String disposeSuggestion;
     private String decisionSource;
     private LocalDateTime sendTime;
+    private String interactionStatus;
+    private LocalDateTime employeeReplyDeadline;
+    private LocalDateTime lastInteractTime;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
@@ -131,6 +134,30 @@ public class WarningAdviceVO {
 
     public void setSendTime(LocalDateTime sendTime) {
         this.sendTime = sendTime;
+    }
+
+    public String getInteractionStatus() {
+        return interactionStatus;
+    }
+
+    public void setInteractionStatus(String interactionStatus) {
+        this.interactionStatus = interactionStatus;
+    }
+
+    public LocalDateTime getEmployeeReplyDeadline() {
+        return employeeReplyDeadline;
+    }
+
+    public void setEmployeeReplyDeadline(LocalDateTime employeeReplyDeadline) {
+        this.employeeReplyDeadline = employeeReplyDeadline;
+    }
+
+    public LocalDateTime getLastInteractTime() {
+        return lastInteractTime;
+    }
+
+    public void setLastInteractTime(LocalDateTime lastInteractTime) {
+        this.lastInteractTime = lastInteractTime;
     }
 
     public Long getUserId() {

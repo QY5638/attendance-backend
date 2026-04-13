@@ -35,6 +35,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Service
@@ -42,8 +43,12 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
 
     private static final String ATTENDANCE_EXCEPTION_BUSINESS_TYPE = "ATTENDANCE_EXCEPTION";
     private static final String RULE_SOURCE = "RULE";
+    private static final String MODEL_SOURCE = "MODEL";
+    private static final String MODEL_FALLBACK_SOURCE = "MODEL_FALLBACK";
     private static final String PENDING_STATUS = "PENDING";
     private static final String ABNORMAL_STATUS = "ABNORMAL";
+    private static final String ABSENT = "ABSENT";
+    private static final String NORMAL_RESULT = "NORMAL";
     private static final String MULTI_LOCATION_CONFLICT = "MULTI_LOCATION_CONFLICT";
     private static final String CONTINUOUS_MULTI_LOCATION_CONFLICT = "CONTINUOUS_MULTI_LOCATION_CONFLICT";
     private static final String CONTINUOUS_ILLEGAL_TIME = "CONTINUOUS_ILLEGAL_TIME";
@@ -104,6 +109,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     @Transactional
     public ExceptionDecisionVO ruleCheck(RuleCheckDTO dto) {
         RuleCheckDTO validatedDTO = exceptionValidationSupport.validateRuleCheck(dto);
+        if (validatedDTO.getRecordId() == null) {
+            return ruleCheckWithoutRecord(validatedDTO);
+        }
         synchronized (getRecordLock(validatedDTO.getRecordId())) {
             AttendanceRecord record = attendanceRecordMapper.selectById(validatedDTO.getRecordId());
             if (record == null) {
@@ -154,6 +162,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
     @Transactional
     public ExceptionDecisionVO complexCheck(ComplexCheckDTO dto) {
         ComplexCheckDTO validatedDTO = exceptionValidationSupport.validateComplexCheck(dto);
+        if (validatedDTO.getRecordId() == null) {
+            return complexCheckWithoutRecord(validatedDTO);
+        }
         synchronized (getRecordLock(validatedDTO.getRecordId())) {
             AttendanceRecord record = attendanceRecordMapper.selectById(validatedDTO.getRecordId());
             if (record == null) {
@@ -184,6 +195,7 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 response = modelGateway.invoke(buildModelRequest(record, promptTemplate, inputSummary));
                 response = applyContinuousProxyEscalation(record, response);
                 response = applyContinuousModelRiskEscalation(record, response);
+                response = applyLowConfidenceReviewEscalation(response);
             } catch (Exception exception) {
                 AttendanceException fallbackException = new AttendanceException();
                 fallbackException.setRecordId(record.getId());
@@ -283,6 +295,43 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         }
     }
 
+    @Override
+    @Transactional
+    public int backfillAbsenceContext() {
+        java.util.List<AttendanceException> candidates = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getType, ABSENT)
+                .isNull(AttendanceException::getRecordId)
+                .orderByAsc(AttendanceException::getId));
+        int updatedCount = 0;
+        for (AttendanceException attendanceException : candidates) {
+            boolean updated = false;
+            String ruleEvidence = buildAbsenceRuleDecisionEvidence(attendanceException);
+            java.util.List<?> decisionTraces = decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId());
+            if (!hasDecisionTraceValue(decisionTraces, ruleEvidence)) {
+                saveRuleDecisionTrace(attendanceException, ruleEvidence);
+                updated = true;
+                decisionTraces = decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId());
+            }
+
+            ExceptionAnalysis analysis = findLatestAnalysis(attendanceException.getId());
+            if (analysis == null) {
+                analysis = buildAbsenceFallbackAnalysis(attendanceException);
+                exceptionAnalysisMapper.insert(analysis);
+                updated = true;
+            }
+            String modelTraceMarker = analysis == null ? null : analysis.getModelResult();
+            if (StringUtils.hasText(modelTraceMarker) && !hasDecisionTraceValue(decisionTraces, modelTraceMarker)) {
+                saveAbsenceFallbackTrace(attendanceException, analysis);
+                updated = true;
+            }
+
+            if (updated) {
+                updatedCount++;
+            }
+        }
+        return updatedCount;
+    }
+
     private ModelInvokeResponse applyContinuousProxyEscalation(AttendanceRecord record, ModelInvokeResponse response) {
         if (record == null || response == null || record.getUserId() == null || record.getCheckTime() == null) {
             return response;
@@ -335,6 +384,215 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         return response;
     }
 
+    private ModelInvokeResponse applyLowConfidenceReviewEscalation(ModelInvokeResponse response) {
+        if (response == null || response.getConfidenceScore() == null) {
+            return response;
+        }
+        BigDecimal threshold = modelGatewayProperties.getLowConfidenceThreshold();
+        if (threshold == null || response.getConfidenceScore().compareTo(threshold) >= 0) {
+            return response;
+        }
+
+        String riskLevel = limitText(response.getRiskLevel(), 20);
+        if (!"HIGH".equals(riskLevel) && !"MEDIUM".equals(riskLevel)) {
+            response.setRiskLevel("MEDIUM");
+        }
+        response.setDecisionReason(appendLowConfidenceNote(response.getDecisionReason()));
+        response.setReasonSummary(appendLowConfidenceNote(response.getReasonSummary()));
+        if (!StringUtils.hasText(response.getActionSuggestion())) {
+            response.setActionSuggestion("模型置信度偏低，建议管理员尽快人工复核");
+        } else {
+            response.setActionSuggestion(response.getActionSuggestion() + "；模型置信度偏低，建议优先人工复核");
+        }
+        return response;
+    }
+
+    private ExceptionDecisionVO ruleCheckWithoutRecord(RuleCheckDTO dto) {
+        AttendanceException attendanceException = requireExistingException(dto == null ? null : dto.getExceptionId());
+        ensureSupportedExceptionWithoutRecord(attendanceException, "规则检查");
+        String evidence = buildAbsenceRuleDecisionEvidence(attendanceException);
+        java.util.List<?> decisionTraces = decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId());
+        if (!hasDecisionTraceValue(decisionTraces, evidence)) {
+            saveRuleDecisionTrace(attendanceException, evidence);
+        }
+
+        ExceptionDecisionVO vo = toDecisionVO(attendanceException);
+        vo.setType(resolveAbsenceRuleConclusion(attendanceException));
+        return vo;
+    }
+
+    private ExceptionDecisionVO complexCheckWithoutRecord(ComplexCheckDTO dto) {
+        AttendanceException attendanceException = requireExistingException(dto == null ? null : dto.getExceptionId());
+        ensureSupportedExceptionWithoutRecord(attendanceException, "系统判断");
+
+        ExceptionAnalysis analysis = findLatestAnalysis(attendanceException.getId());
+        if (analysis == null) {
+            analysis = buildAbsenceFallbackAnalysis(attendanceException);
+            exceptionAnalysisMapper.insert(analysis);
+            saveAbsenceFallbackTrace(attendanceException, analysis);
+        } else {
+            java.util.List<?> decisionTraces = decisionTraceService.list(ATTENDANCE_EXCEPTION_BUSINESS_TYPE, attendanceException.getId());
+            if (!hasDecisionTraceValue(decisionTraces, analysis.getModelResult())) {
+                saveAbsenceFallbackTrace(attendanceException, analysis);
+            }
+        }
+        return toDecisionVO(attendanceException, analysis, MODEL_FALLBACK_SOURCE);
+    }
+
+    private void ensureSupportedExceptionWithoutRecord(AttendanceException attendanceException, String actionName) {
+        if (attendanceException == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "异常记录不存在");
+        }
+        if (attendanceException.getRecordId() != null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "当前异常已存在打卡记录，请基于记录重新执行" + actionName);
+        }
+        if (!ABSENT.equals(attendanceException.getType())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "当前异常缺少可用于" + actionName + "的记录上下文");
+        }
+    }
+
+    private ExceptionAnalysis buildAbsenceFallbackAnalysis(AttendanceException attendanceException) {
+        AttendanceRecord earliestCheckIn = findEarliestSameDayCheckIn(attendanceException);
+        String currentConclusion = resolveAbsenceRuleConclusion(attendanceException);
+        String inputSummary = buildAbsenceInputSummary(attendanceException, earliestCheckIn);
+        String reasonSummary = buildAbsenceReasonSummary(attendanceException, earliestCheckIn, currentConclusion);
+        String actionSuggestion = buildAbsenceActionSuggestion(currentConclusion);
+
+        ExceptionAnalysis analysis = new ExceptionAnalysis();
+        analysis.setExceptionId(attendanceException.getId());
+        analysis.setInputSummary(inputSummary);
+        analysis.setModelResult(reasonSummary);
+        analysis.setModelConclusion(currentConclusion);
+        analysis.setConfidenceScore(resolveAbsenceConfidenceScore(currentConclusion));
+        analysis.setDecisionReason(buildAbsenceRuleDecisionEvidence(attendanceException));
+        analysis.setSuggestion(actionSuggestion);
+        analysis.setReasonSummary(reasonSummary);
+        analysis.setActionSuggestion(actionSuggestion);
+        analysis.setSimilarCaseSummary(buildAbsenceCaseSummary(currentConclusion));
+        analysis.setPromptVersion("absence-context-fallback-v1");
+        return analysis;
+    }
+
+    private AttendanceRecord findEarliestSameDayCheckIn(AttendanceException attendanceException) {
+        if (attendanceException == null || attendanceException.getUserId() == null || attendanceException.getCreateTime() == null) {
+            return null;
+        }
+        LocalDate targetDay = attendanceException.getCreateTime().toLocalDate();
+        java.util.List<AttendanceRecord> records = attendanceRecordMapper.selectList(Wrappers.<AttendanceRecord>lambdaQuery()
+                .eq(AttendanceRecord::getUserId, attendanceException.getUserId())
+                .eq(AttendanceRecord::getCheckType, "IN")
+                .ge(AttendanceRecord::getCheckTime, targetDay.atStartOfDay())
+                .lt(AttendanceRecord::getCheckTime, targetDay.plusDays(1L).atStartOfDay())
+                .orderByAsc(AttendanceRecord::getCheckTime)
+                .orderByAsc(AttendanceRecord::getId)
+                .last("LIMIT 1"));
+        return records == null || records.isEmpty() ? null : records.get(0);
+    }
+
+    private String resolveAbsenceRuleConclusion(AttendanceException attendanceException) {
+        AttendanceRecord earliestCheckIn = findEarliestSameDayCheckIn(attendanceException);
+        if (earliestCheckIn == null) {
+            return ABSENT;
+        }
+        Rule rule = safeGetEnabledRule();
+        if (rule != null && isLate(earliestCheckIn, rule)) {
+            return "LATE";
+        }
+        return NORMAL_RESULT;
+    }
+
+    private Rule safeGetEnabledRule() {
+        try {
+            return ruleService.getEnabledRule();
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    private String buildAbsenceRuleDecisionEvidence(AttendanceException attendanceException) {
+        AttendanceRecord earliestCheckIn = findEarliestSameDayCheckIn(attendanceException);
+        StringBuilder builder = new StringBuilder();
+        builder.append(StringUtils.hasText(attendanceException.getDescription()) ? attendanceException.getDescription() : "系统按规则生成缺勤异常");
+        if (earliestCheckIn == null) {
+            builder.append("；当前复核未发现当天上班打卡记录");
+        } else {
+            builder.append("；当前复核发现当天最早上班打卡时间=").append(earliestCheckIn.getCheckTime());
+            Rule rule = safeGetEnabledRule();
+            if (rule != null) {
+                builder.append("；规则截止时间=").append(rule.getStartTime().plusMinutes(rule.getLateThreshold().longValue()));
+            }
+        }
+        return builder.toString();
+    }
+
+    private String buildAbsenceInputSummary(AttendanceException attendanceException, AttendanceRecord earliestCheckIn) {
+        long historyAbnormalCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, attendanceException.getUserId()));
+        return "异常编号：" + attendanceException.getId()
+                + "；员工编号：" + attendanceException.getUserId()
+                + "；异常类型：缺勤"
+                + "；异常生成时间：" + attendanceException.getCreateTime()
+                + "；当前最早上班打卡时间：" + (earliestCheckIn == null ? "未发现" : earliestCheckIn.getCheckTime())
+                + "；当前最早上班打卡地点：" + (earliestCheckIn == null ? "未发现" : safeText(earliestCheckIn.getLocation()))
+                + "；历史异常次数：" + historyAbnormalCount
+                + "；规则说明：" + safeText(attendanceException.getDescription())
+                + "。请所有说明使用自然中文，不要输出英文键名、技术字段名或程序变量名。";
+    }
+
+    private String buildAbsenceReasonSummary(AttendanceException attendanceException,
+                                             AttendanceRecord earliestCheckIn,
+                                             String currentConclusion) {
+        if (earliestCheckIn == null) {
+            return "系统复核未发现该员工在异常生成当天的上班打卡记录，当前缺勤结论与规则检测结果一致。";
+        }
+        if ("LATE".equals(currentConclusion)) {
+            return "系统复核发现该员工当天已存在上班打卡，但最早签到时间晚于规则阈值，当前缺勤异常更接近迟到或补录后待修正场景。";
+        }
+        return "系统复核发现该员工当天已存在有效上班打卡，当前缺勤异常可能受定时检测生成时点或后续补录影响，建议人工确认后修正。";
+    }
+
+    private String buildAbsenceActionSuggestion(String currentConclusion) {
+        if (ABSENT.equals(currentConclusion)) {
+            return "建议管理员结合请假、外出和补卡情况继续复核，必要时向员工发起说明请求。";
+        }
+        if ("LATE".equals(currentConclusion)) {
+            return "建议管理员重点核对当天最早上班打卡时间，并按迟到或补卡修正流程处理当前异常。";
+        }
+        return "建议管理员核对当天实际签到证据，确认是否关闭该缺勤异常并同步修正相关记录。";
+    }
+
+    private String buildAbsenceCaseSummary(String currentConclusion) {
+        if (ABSENT.equals(currentConclusion)) {
+            return "同类场景通常由未签到、漏打卡或请假未同步引起。";
+        }
+        if ("LATE".equals(currentConclusion)) {
+            return "同类场景通常由迟到后补登、人工补卡通过或缺勤任务生成早于实际签到引起。";
+        }
+        return "同类场景通常由事后补登、补卡审批通过或异常生成时点与最终签到结果不一致引起。";
+    }
+
+    private BigDecimal resolveAbsenceConfidenceScore(String currentConclusion) {
+        if (ABSENT.equals(currentConclusion)) {
+            return new BigDecimal("0.93");
+        }
+        if ("LATE".equals(currentConclusion)) {
+            return new BigDecimal("0.68");
+        }
+        return new BigDecimal("0.58");
+    }
+
+    private void saveAbsenceFallbackTrace(AttendanceException attendanceException, ExceptionAnalysis analysis) {
+        decisionTraceService.save(
+                ATTENDANCE_EXCEPTION_BUSINESS_TYPE,
+                attendanceException.getId(),
+                buildAbsenceRuleDecisionEvidence(attendanceException),
+                analysis == null ? null : analysis.getModelResult(),
+                analysis == null ? attendanceException.getType() : analysis.getModelConclusion(),
+                analysis == null ? null : analysis.getConfidenceScore(),
+                analysis == null ? attendanceException.getDescription() : analysis.getDecisionReason()
+        );
+    }
+
     private String normalizeModelExceptionType(String conclusion) {
         String normalized = limitText(conclusion, 50);
         if (!StringUtils.hasText(normalized)) {
@@ -357,6 +615,13 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             return normalized;
         }
         return COMPLEX_ATTENDANCE_RISK;
+    }
+
+    private String appendLowConfidenceNote(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "模型置信度低于阈值，系统已自动提升为人工复核优先事项";
+        }
+        return value + "；模型置信度低于阈值，系统已自动提升为人工复核优先事项";
     }
 
     private ExceptionDecisionVO toDecisionVO(AttendanceException attendanceException) {
@@ -385,6 +650,16 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
             vo.setReasonSummary(analysis.getReasonSummary());
             vo.setActionSuggestion(analysis.getActionSuggestion());
             vo.setConfidenceScore(analysis.getConfidenceScore());
+        }
+        return vo;
+    }
+
+    private ExceptionDecisionVO toDecisionVO(AttendanceException attendanceException,
+                                             ExceptionAnalysis analysis,
+                                             String sourceTypeOverride) {
+        ExceptionDecisionVO vo = toDecisionVO(attendanceException, analysis);
+        if (StringUtils.hasText(sourceTypeOverride)) {
+            vo.setSourceType(sourceTypeOverride);
         }
         return vo;
     }
@@ -1202,6 +1477,14 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
                 .eq(ExceptionAnalysis::getExceptionId, exceptionId)
                 .orderByDesc(ExceptionAnalysis::getCreateTime)
                 .last("LIMIT 1"));
+    }
+
+    private AttendanceException requireExistingException(Long exceptionId) {
+        AttendanceException attendanceException = exceptionId == null ? null : attendanceExceptionMapper.selectById(exceptionId);
+        if (attendanceException == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "异常记录不存在");
+        }
+        return attendanceException;
     }
 
     private Object[] initRecordLocks() {

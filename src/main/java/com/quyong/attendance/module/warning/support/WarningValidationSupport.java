@@ -5,6 +5,8 @@ import com.quyong.attendance.common.exception.BusinessException;
 import com.quyong.attendance.module.warning.dto.RiskLevelQueryDTO;
 import com.quyong.attendance.module.warning.dto.RiskLevelUpdateDTO;
 import com.quyong.attendance.module.warning.dto.WarningQueryDTO;
+import com.quyong.attendance.module.warning.dto.WarningReplyDTO;
+import com.quyong.attendance.module.warning.dto.WarningRequestExplanationDTO;
 import com.quyong.attendance.module.warning.dto.WarningReevaluateDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -38,6 +40,32 @@ public class WarningValidationSupport {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "重评估原因不能为空");
         }
         return dto;
+    }
+
+    public WarningRequestExplanationDTO validateRequestExplanation(WarningRequestExplanationDTO dto, Integer defaultDeadlineHours) {
+        WarningRequestExplanationDTO safe = dto == null ? new WarningRequestExplanationDTO() : dto;
+        safe.setContent(normalize(safe.getContent()));
+        if (!StringUtils.hasText(safe.getContent())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "说明请求内容不能为空");
+        }
+        Integer deadlineHours = safe.getDeadlineHours();
+        if (deadlineHours == null) {
+            deadlineHours = defaultDeadlineHours;
+        }
+        if (deadlineHours == null || deadlineHours.intValue() < 1 || deadlineHours.intValue() > 168) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "说明回复时限不合法");
+        }
+        safe.setDeadlineHours(deadlineHours);
+        return safe;
+    }
+
+    public WarningReplyDTO validateReply(WarningReplyDTO dto) {
+        WarningReplyDTO safe = dto == null ? new WarningReplyDTO() : dto;
+        safe.setContent(normalize(safe.getContent()));
+        if (!StringUtils.hasText(safe.getContent())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "回复内容不能为空");
+        }
+        return safe;
     }
 
     public RiskLevelQueryDTO validateRiskLevelQuery(RiskLevelQueryDTO dto) {

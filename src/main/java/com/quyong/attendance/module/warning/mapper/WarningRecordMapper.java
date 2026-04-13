@@ -31,7 +31,8 @@ public interface WarningRecordMapper extends BaseMapper<WarningRecord> {
 
     @Select({
             "<script>",
-            "SELECT wr.id, wr.exceptionId, wr.type, wr.level, wr.status, wr.priorityScore, wr.aiSummary, wr.disposeSuggestion, wr.decisionSource, wr.sendTime",
+            "SELECT wr.id, wr.exceptionId, wr.type, wr.level, wr.status, wr.priorityScore, wr.aiSummary, wr.disposeSuggestion, wr.decisionSource, wr.sendTime,",
+            "wr.interactionStatus, wr.employeeReplyDeadline, wr.assignedAdminId, wr.lastInteractTime",
             "FROM warningRecord wr",
             "LEFT JOIN attendanceException ae ON wr.exceptionId = ae.id",
             "WHERE 1 = 1",
@@ -54,9 +55,9 @@ public interface WarningRecordMapper extends BaseMapper<WarningRecord> {
                                           @Param("limit") int limit,
                                           @Param("offset") int offset);
 
-    @Select("SELECT id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime FROM warningRecord WHERE exceptionId = #{exceptionId} LIMIT 1")
+    @Select("SELECT id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime, interactionStatus, employeeReplyDeadline, assignedAdminId, lastInteractTime FROM warningRecord WHERE exceptionId = #{exceptionId} LIMIT 1")
     WarningRecord selectByExceptionId(@Param("exceptionId") Long exceptionId);
 
-    @Select("SELECT id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime FROM warningRecord WHERE sendTime >= #{startTime} ORDER BY sendTime ASC, id ASC")
+    @Select("SELECT id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime, interactionStatus, employeeReplyDeadline, assignedAdminId, lastInteractTime FROM warningRecord WHERE sendTime >= #{startTime} ORDER BY sendTime ASC, id ASC")
     List<WarningRecord> selectBySendTimeSince(@Param("startTime") LocalDateTime startTime);
 }
