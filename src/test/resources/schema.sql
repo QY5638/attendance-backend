@@ -225,7 +225,46 @@ CREATE TABLE warningRecord (
     disposeSuggestion VARCHAR(255),
     decisionSource VARCHAR(20),
     sendTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    interactionStatus VARCHAR(32) NOT NULL DEFAULT 'NONE',
+    employeeReplyDeadline TIMESTAMP,
+    assignedAdminId BIGINT,
+    lastInteractTime TIMESTAMP,
     CONSTRAINT fk_warning_record_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id)
+);
+
+CREATE TABLE notificationRecord (
+    id BIGINT PRIMARY KEY,
+    recipientUserId BIGINT NOT NULL,
+    senderUserId BIGINT,
+    businessType VARCHAR(32) NOT NULL,
+    businessId BIGINT NOT NULL,
+    category VARCHAR(32) NOT NULL,
+    title VARCHAR(120) NOT NULL,
+    content VARCHAR(1000) NOT NULL,
+    level VARCHAR(16) NOT NULL DEFAULT 'INFO',
+    actionCode VARCHAR(32) NOT NULL DEFAULT 'VIEW',
+    readStatus TINYINT NOT NULL DEFAULT 0,
+    deadline TIMESTAMP,
+    extraJson CLOB,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    readTime TIMESTAMP,
+    CONSTRAINT fk_notification_recipient FOREIGN KEY (recipientUserId) REFERENCES user (id),
+    CONSTRAINT fk_notification_sender FOREIGN KEY (senderUserId) REFERENCES user (id) ON DELETE SET NULL
+);
+
+CREATE TABLE warningInteractionRecord (
+    id BIGINT PRIMARY KEY,
+    warningId BIGINT NOT NULL,
+    exceptionId BIGINT NOT NULL,
+    senderUserId BIGINT,
+    senderRole VARCHAR(16) NOT NULL,
+    messageType VARCHAR(32) NOT NULL,
+    content VARCHAR(2000) NOT NULL,
+    attachmentsJson CLOB,
+    createTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_warning_interaction_warning FOREIGN KEY (warningId) REFERENCES warningRecord (id),
+    CONSTRAINT fk_warning_interaction_exception FOREIGN KEY (exceptionId) REFERENCES attendanceException (id),
+    CONSTRAINT fk_warning_interaction_sender FOREIGN KEY (senderUserId) REFERENCES user (id) ON DELETE SET NULL
 );
 
 CREATE TABLE operationLog (
@@ -245,4 +284,7 @@ CREATE UNIQUE INDEX uk_exception_type_code ON exceptionType (code);
 CREATE UNIQUE INDEX uk_risk_level_code ON riskLevel (code);
 CREATE INDEX idx_review_record_exception_id ON reviewRecord (exceptionId);
 CREATE UNIQUE INDEX uk_warning_record_exception ON warningRecord (exceptionId);
+CREATE INDEX idx_notification_recipient_read ON notificationRecord (recipientUserId, readStatus, createTime);
+CREATE INDEX idx_notification_business ON notificationRecord (businessType, businessId, category);
+CREATE INDEX idx_warning_interaction_warning ON warningInteractionRecord (warningId, createTime);
 CREATE INDEX idxOperationLogUserTime ON operationLog (userId, operationTime);
