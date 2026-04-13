@@ -145,7 +145,7 @@ CREATE TABLE `attendanceRepair` (
 
 CREATE TABLE `attendanceException` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '异常记录ID',
-  `recordId` BIGINT NOT NULL COMMENT '打卡记录ID',
+  `recordId` BIGINT DEFAULT NULL COMMENT '打卡记录ID',
   `userId` BIGINT NOT NULL COMMENT '用户ID',
   `type` VARCHAR(50) NOT NULL COMMENT '异常类型',
   `riskLevel` VARCHAR(20) NOT NULL COMMENT '风险等级',
@@ -189,10 +189,52 @@ CREATE TABLE `warningRecord` (
   `disposeSuggestion` VARCHAR(255) DEFAULT NULL COMMENT '处置建议',
   `decisionSource` VARCHAR(20) NOT NULL DEFAULT 'MODEL_FUSION' COMMENT '决策来源',
   `sendTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  `interactionStatus` VARCHAR(32) NOT NULL DEFAULT 'NONE' COMMENT '交互状态',
+  `employeeReplyDeadline` DATETIME DEFAULT NULL COMMENT '员工回复截止时间',
+  `assignedAdminId` BIGINT DEFAULT NULL COMMENT '当前处理管理员ID',
+  `lastInteractTime` DATETIME DEFAULT NULL COMMENT '最近交互时间',
   UNIQUE KEY `ukWarningRecordExceptionId` (`exceptionId`),
   KEY `idxWarningRecordExceptionId` (`exceptionId`),
   CONSTRAINT `fkWarningRecordException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警记录表';
+
+CREATE TABLE `notificationRecord` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '通知ID',
+  `recipientUserId` BIGINT NOT NULL COMMENT '接收用户ID',
+  `senderUserId` BIGINT DEFAULT NULL COMMENT '发送用户ID',
+  `businessType` VARCHAR(32) NOT NULL COMMENT '业务类型',
+  `businessId` BIGINT NOT NULL COMMENT '业务ID',
+  `category` VARCHAR(32) NOT NULL COMMENT '通知分类',
+  `title` VARCHAR(120) NOT NULL COMMENT '通知标题',
+  `content` VARCHAR(1000) NOT NULL COMMENT '通知内容',
+  `level` VARCHAR(16) NOT NULL DEFAULT 'INFO' COMMENT '通知等级',
+  `actionCode` VARCHAR(32) NOT NULL DEFAULT 'VIEW' COMMENT '动作编码',
+  `readStatus` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已读',
+  `deadline` DATETIME DEFAULT NULL COMMENT '截止时间',
+  `extraJson` TEXT DEFAULT NULL COMMENT '扩展信息',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `readTime` DATETIME DEFAULT NULL COMMENT '阅读时间',
+  KEY `idxNotificationRecipientRead` (`recipientUserId`, `readStatus`, `createTime`),
+  KEY `idxNotificationBusiness` (`businessType`, `businessId`, `category`),
+  CONSTRAINT `fkNotificationRecipient` FOREIGN KEY (`recipientUserId`) REFERENCES `user` (`id`),
+  CONSTRAINT `fkNotificationSender` FOREIGN KEY (`senderUserId`) REFERENCES `user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内通知表';
+
+CREATE TABLE `warningInteractionRecord` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '交互记录ID',
+  `warningId` BIGINT NOT NULL COMMENT '预警ID',
+  `exceptionId` BIGINT NOT NULL COMMENT '异常ID',
+  `senderUserId` BIGINT DEFAULT NULL COMMENT '发送人ID',
+  `senderRole` VARCHAR(16) NOT NULL COMMENT '发送人角色',
+  `messageType` VARCHAR(32) NOT NULL COMMENT '消息类型',
+  `content` VARCHAR(2000) NOT NULL COMMENT '消息内容',
+  `attachmentsJson` TEXT DEFAULT NULL COMMENT '附件信息',
+  `createTime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY `idxWarningInteractionWarning` (`warningId`, `createTime`),
+  CONSTRAINT `fkWarningInteractionWarning` FOREIGN KEY (`warningId`) REFERENCES `warningRecord` (`id`),
+  CONSTRAINT `fkWarningInteractionException` FOREIGN KEY (`exceptionId`) REFERENCES `attendanceException` (`id`),
+  CONSTRAINT `fkWarningInteractionSender` FOREIGN KEY (`senderUserId`) REFERENCES `user` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警交互记录表';
 
 CREATE TABLE `riskLevel` (
   `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '风险等级ID',
@@ -313,6 +355,7 @@ INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`) VALUES
 ('CONTINUOUS_ILLEGAL_TIME', '连续非法时间打卡', '连续周期内多次发生在非法时间段的打卡', 1),
 ('MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1),
 ('CONTINUOUS_MULTI_LOCATION_CONFLICT', '连续多地点冲突', '连续周期内多次出现跨地点冲突打卡', 1),
+('ABSENT', '缺勤', '在规定时段内未完成上班打卡', 1),
 ('CONTINUOUS_ATTENDANCE_RISK', '连续综合考勤异常', '连续周期内多种规则异常叠加形成的综合风险', 1),
 ('COMPLEX_ATTENDANCE_RISK', '综合识别异常', '模型或降级流程识别出的综合异常风险', 1),
 ('CONTINUOUS_MODEL_RISK', '连续模型风险异常', '连续周期内多次命中模型识别的高风险异常', 1);

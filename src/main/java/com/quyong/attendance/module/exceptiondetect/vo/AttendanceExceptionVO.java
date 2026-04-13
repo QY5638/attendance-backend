@@ -15,6 +15,8 @@ public class AttendanceExceptionVO {
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
+    private String username;
+    private String realName;
     private String type;
     private String riskLevel;
     private String sourceType;
@@ -44,6 +46,22 @@ public class AttendanceExceptionVO {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getRealName() {
+        return realName;
+    }
+
+    public void setRealName(String realName) {
+        this.realName = realName;
     }
 
     public String getType() {

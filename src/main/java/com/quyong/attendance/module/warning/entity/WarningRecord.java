@@ -41,6 +41,18 @@ public class WarningRecord {
     @TableField("sendTime")
     private LocalDateTime sendTime;
 
+    @TableField("interactionStatus")
+    private String interactionStatus;
+
+    @TableField("employeeReplyDeadline")
+    private LocalDateTime employeeReplyDeadline;
+
+    @TableField("assignedAdminId")
+    private Long assignedAdminId;
+
+    @TableField("lastInteractTime")
+    private LocalDateTime lastInteractTime;
+
     public Long getId() {
         return id;
     }
@@ -119,5 +131,37 @@ public class WarningRecord {
 
     public void setSendTime(LocalDateTime sendTime) {
         this.sendTime = sendTime;
+    }
+
+    public String getInteractionStatus() {
+        return interactionStatus;
+    }
+
+    public void setInteractionStatus(String interactionStatus) {
+        this.interactionStatus = interactionStatus;
+    }
+
+    public LocalDateTime getEmployeeReplyDeadline() {
+        return employeeReplyDeadline;
+    }
+
+    public void setEmployeeReplyDeadline(LocalDateTime employeeReplyDeadline) {
+        this.employeeReplyDeadline = employeeReplyDeadline;
+    }
+
+    public Long getAssignedAdminId() {
+        return assignedAdminId;
+    }
+
+    public void setAssignedAdminId(Long assignedAdminId) {
+        this.assignedAdminId = assignedAdminId;
+    }
+
+    public LocalDateTime getLastInteractTime() {
+        return lastInteractTime;
+    }
+
+    public void setLastInteractTime(LocalDateTime lastInteractTime) {
+        this.lastInteractTime = lastInteractTime;
     }
 }

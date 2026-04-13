@@ -45,7 +45,12 @@ public class SecurityConfig {
                 .hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/user/me").hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/statistics/personal", "/api/statistics/summary").hasAnyRole("ADMIN", "EMPLOYEE")
+                .antMatchers("/api/notification/**").hasAnyRole("ADMIN", "EMPLOYEE")
+                .antMatchers("/api/warning/*/advice", "/api/warning/*/interactions", "/api/warning/*/reply")
+                .hasAnyRole("ADMIN", "EMPLOYEE")
                 .antMatchers("/api/attendance/list").hasRole("ADMIN")
+                .antMatchers("/api/warning/list", "/api/warning/dashboard", "/api/warning/re-evaluate", "/api/warning/*/request-explanation", "/api/warning/run-absence-check")
+                .hasRole("ADMIN")
                 .antMatchers("/api/**").hasRole("ADMIN")
                 .anyRequest().authenticated();
 

@@ -9,4 +9,6 @@ public interface ExceptionAnalysisOrchestrator {
     ExceptionDecisionVO ruleCheck(RuleCheckDTO dto);
 
     ExceptionDecisionVO complexCheck(ComplexCheckDTO dto);
+
+    int backfillAbsenceContext();
 }

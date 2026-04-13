@@ -3,6 +3,8 @@ package com.quyong.attendance.module.model.gateway.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 @ConfigurationProperties(prefix = "app.llm")
 public class ModelGatewayProperties {
@@ -12,6 +14,7 @@ public class ModelGatewayProperties {
     private String model;
     private String apiKey;
     private Integer timeoutMs = Integer.valueOf(10000);
+    private BigDecimal lowConfidenceThreshold = new BigDecimal("75");
 
     public String getProvider() {
         return provider;
@@ -51,5 +54,13 @@ public class ModelGatewayProperties {
 
     public void setTimeoutMs(Integer timeoutMs) {
         this.timeoutMs = timeoutMs;
+    }
+
+    public BigDecimal getLowConfidenceThreshold() {
+        return lowConfidenceThreshold;
+    }
+
+    public void setLowConfidenceThreshold(BigDecimal lowConfidenceThreshold) {
+        this.lowConfidenceThreshold = lowConfidenceThreshold;
     }
 }

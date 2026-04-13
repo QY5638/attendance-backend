@@ -13,6 +13,8 @@ import com.quyong.attendance.module.exceptiondetect.service.ExceptionQueryServic
 import com.quyong.attendance.module.exceptiondetect.support.ExceptionValidationSupport;
 import com.quyong.attendance.module.exceptiondetect.vo.AttendanceExceptionVO;
 import com.quyong.attendance.module.exceptiondetect.vo.ExceptionAnalysisBriefVO;
+import com.quyong.attendance.module.user.entity.User;
+import com.quyong.attendance.module.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,13 +27,16 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
     private final AttendanceExceptionMapper attendanceExceptionMapper;
     private final ExceptionAnalysisMapper exceptionAnalysisMapper;
     private final ExceptionValidationSupport exceptionValidationSupport;
+    private final UserMapper userMapper;
 
     public ExceptionQueryServiceImpl(AttendanceExceptionMapper attendanceExceptionMapper,
                                      ExceptionAnalysisMapper exceptionAnalysisMapper,
-                                     ExceptionValidationSupport exceptionValidationSupport) {
+                                     ExceptionValidationSupport exceptionValidationSupport,
+                                     UserMapper userMapper) {
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.exceptionValidationSupport = exceptionValidationSupport;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -73,7 +78,7 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
                 .orderByDesc(ExceptionAnalysis::getCreateTime)
                 .last("LIMIT 1"));
         if (analysis == null) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "异常分析摘要不存在");
+            return null;
         }
         ExceptionAnalysisBriefVO vo = new ExceptionAnalysisBriefVO();
         vo.setModelConclusion(analysis.getModelConclusion());
@@ -90,6 +95,13 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
         vo.setId(entity.getId());
         vo.setRecordId(entity.getRecordId());
         vo.setUserId(entity.getUserId());
+        if (entity.getUserId() != null) {
+            User user = userMapper.selectById(entity.getUserId());
+            if (user != null) {
+                vo.setUsername(user.getUsername());
+                vo.setRealName(user.getRealName());
+            }
+        }
         vo.setType(entity.getType());
         vo.setRiskLevel(entity.getRiskLevel());
         vo.setSourceType(entity.getSourceType());

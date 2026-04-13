@@ -132,6 +132,7 @@ public class ReviewServiceImpl implements ReviewService {
         attendanceException.setProcessStatus("REVIEWED");
         attendanceExceptionMapper.updateById(attendanceException);
         warningService.markProcessedByExceptionId(validatedDTO.getExceptionId());
+        warningService.notifyReviewResult(validatedDTO.getExceptionId(), validatedDTO.getReviewResult(), validatedDTO.getReviewComment());
         operationLogService.save(reviewUserId, "REVIEW", currentAuthUser().getRealName() + "复核异常记录" + validatedDTO.getExceptionId());
         return toVO(reviewRecord);
     }

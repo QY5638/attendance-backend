@@ -17,3 +17,5 @@ spring:
 
 app:
   env: prod
+  llm:
+    low-confidence-threshold: ${LLM_LOW_CONFIDENCE_THRESHOLD:75}

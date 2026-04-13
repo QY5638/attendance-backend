@@ -16,6 +16,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -176,6 +177,8 @@ public class CompreFaceRecognitionProvider implements FaceRecognitionProvider {
             return readJson(responseEntity.getBody());
         } catch (BusinessException exception) {
             throw exception;
+        } catch (ResourceAccessException exception) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), buildServiceUnavailableMessage());
         } catch (HttpStatusCodeException exception) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), extractRemoteMessage(exception, "CompreFace 请求失败"));
         } catch (Exception exception) {
@@ -258,6 +261,10 @@ public class CompreFaceRecognitionProvider implements FaceRecognitionProvider {
             return baseUrl.substring(0, baseUrl.length() - 1);
         }
         return baseUrl;
+    }
+
+    private String buildServiceUnavailableMessage() {
+        return "本地 CompreFace 人脸服务未启动，请先确认 " + baseUrl() + " 可访问后再进行人脸校验或打卡";
     }
 
     private BigDecimal defaultMatchThreshold() {

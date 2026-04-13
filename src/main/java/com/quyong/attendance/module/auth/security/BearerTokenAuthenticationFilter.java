@@ -36,13 +36,12 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
+        String token = extractAccessToken(request);
+        if (!StringUtils.hasText(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authorization.substring(BEARER_PREFIX.length()).trim();
         AuthUser authUser = tokenStore.get(token);
         if (isInvalidAuthUser(authUser)) {
             authenticationEntryPoint.commence(request, response, new BadCredentialsException("token 无效或已过期"));
@@ -76,5 +75,17 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
                 || authUser.getStatus() != 1
                 || authUser.getExpireAt() == null
                 || !authUser.getExpireAt().isAfter(Instant.now());
+    }
+
+    private String extractAccessToken(HttpServletRequest request) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
+            return authorization.substring(BEARER_PREFIX.length()).trim();
+        }
+        if (request != null && "/api/notification/stream".equals(request.getRequestURI())) {
+            String token = request.getParameter("token");
+            return token == null ? null : token.trim();
+        }
+        return null;
     }
 }

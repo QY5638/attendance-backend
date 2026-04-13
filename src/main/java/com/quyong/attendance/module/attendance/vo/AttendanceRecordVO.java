@@ -19,6 +19,7 @@ public class AttendanceRecordVO {
     private BigDecimal faceScore;
     private String status;
     private String exceptionType;
+    private String repairStatus;
 
     public Long getId() {
         return id;
@@ -130,5 +131,13 @@ public class AttendanceRecordVO {
 
     public void setExceptionType(String exceptionType) {
         this.exceptionType = exceptionType;
+    }
+
+    public String getRepairStatus() {
+        return repairStatus;
+    }
+
+    public void setRepairStatus(String repairStatus) {
+        this.repairStatus = repairStatus;
     }
 }

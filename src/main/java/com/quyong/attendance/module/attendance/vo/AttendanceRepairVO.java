@@ -6,10 +6,13 @@ public class AttendanceRepairVO {
 
     private Long id;
     private Long userId;
+    private String realName;
+    private String deptName;
     private String checkType;
     private LocalDateTime checkTime;
     private String repairReason;
     private String status;
+    private Long recordId;
     private LocalDateTime createTime;
 
     public Long getId() {
@@ -58,6 +61,30 @@ public class AttendanceRepairVO {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getRealName() {
+        return realName;
+    }
+
+    public void setRealName(String realName) {
+        this.realName = realName;
+    }
+
+    public String getDeptName() {
+        return deptName;
+    }
+
+    public void setDeptName(String deptName) {
+        this.deptName = deptName;
+    }
+
+    public Long getRecordId() {
+        return recordId;
+    }
+
+    public void setRecordId(Long recordId) {
+        this.recordId = recordId;
     }
 
     public LocalDateTime getCreateTime() {
