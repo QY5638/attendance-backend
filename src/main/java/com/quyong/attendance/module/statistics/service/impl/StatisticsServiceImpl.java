@@ -486,15 +486,18 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private String buildPersonalCsv(PersonalStatisticsVO personal) {
         return new StringBuilder()
-                .append("人员编号,姓名,部门编号,考勤记录数,异常记录数,预警记录数,复核记录数,闭环记录数\n")
+                .append("人员编号,姓名,部门编号,考勤记录数,异常记录数,系统处理次数,风险预警数,人工复核数,已完成处置数,待处理预警数,处置完成率\n")
                 .append(personal.getUserId()).append(',')
                 .append(csvValue(personal.getRealName())).append(',')
                 .append(personal.getDeptId()).append(',')
                 .append(personal.getRecordCount()).append(',')
                 .append(personal.getExceptionCount()).append(',')
+                .append(personal.getAnalysisCount()).append(',')
                 .append(personal.getWarningCount()).append(',')
                 .append(personal.getReviewCount()).append(',')
-                .append(personal.getClosedLoopCount())
+                .append(personal.getClosedLoopCount()).append(',')
+                .append(Math.max(safeLongValue(personal.getWarningCount()) - safeLongValue(personal.getClosedLoopCount()), 0L)).append(',')
+                .append(formatPercent(calculateRatioValue(personal.getClosedLoopCount(), personal.getWarningCount())))
                 .append('\n')
                 .toString();
     }
@@ -506,7 +509,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .append("导出时间,").append(EXPORT_TIME_FORMATTER.format(LocalDateTime.now())).append('\n')
                 .append('\n')
                 .append(csvValue("汇总概况")).append('\n')
-                .append("部门范围,考勤记录数,异常记录数,分析记录数,预警记录数,复核记录数,闭环记录数\n")
+                .append("部门范围,考勤记录数,异常记录数,系统处理次数,风险预警数,人工复核数,已完成处置数\n")
                 .append(csvValue(summary.getDeptName())).append(',')
                 .append(summary.getRecordCount()).append(',')
                 .append(summary.getExceptionCount()).append(',')
@@ -517,7 +520,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 .append('\n')
                 .append('\n')
                 .append(csvValue("部门明细")).append('\n')
-                .append("序号,部门编号,部门名称,考勤记录数,异常记录数,分析记录数,预警记录数,复核记录数,闭环记录数\n");
+                .append("序号,部门编号,部门名称,考勤记录数,异常记录数,系统处理次数,风险预警数,人工复核数,已完成处置数\n");
 
         for (int index = 1; index < departments.size(); index++) {
             DepartmentStatisticsVO department = departments.get(index);
@@ -541,6 +544,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             CellStyle sectionStyle = createSectionStyle(workbook);
             CellStyle headerStyle = createHeaderStyle(workbook);
             CellStyle textStyle = createTextStyle(workbook);
+            CellStyle wrapTextStyle = createWrapTextStyle(workbook);
             CellStyle numberStyle = createNumberStyle(workbook);
             CellStyle percentStyle = createPercentStyle(workbook);
 
@@ -548,7 +552,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             Row titleRow = sheet.createRow(rowIndex++);
             titleRow.createCell(0).setCellValue("部门统计报表");
             titleRow.getCell(0).setCellStyle(titleStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 12));
+            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 16));
 
             Row exportTimeRow = sheet.createRow(rowIndex++);
             exportTimeRow.createCell(0).setCellValue("导出时间");
@@ -567,9 +571,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             DepartmentStatisticsVO summary = departments.isEmpty() ? new DepartmentStatisticsVO() : departments.get(0);
             rowIndex = writeDepartmentSummarySection(sheet, rowIndex, summary, sectionStyle, headerStyle, textStyle, numberStyle, percentStyle);
             rowIndex++;
-            writeDepartmentDetailSection(sheet, rowIndex, departments, sectionStyle, headerStyle, textStyle, numberStyle, percentStyle);
+            rowIndex = writeDepartmentDetailSection(sheet, rowIndex, departments, sectionStyle, headerStyle, textStyle, numberStyle, percentStyle);
+            rowIndex++;
+            writeDepartmentDefinitionSection(sheet, rowIndex, sectionStyle, headerStyle, textStyle, wrapTextStyle);
 
-            for (int columnIndex = 0; columnIndex <= 12; columnIndex++) {
+            for (int columnIndex = 0; columnIndex <= 16; columnIndex++) {
                 sheet.autoSizeColumn(columnIndex);
                 sheet.setColumnWidth(columnIndex, Math.min(sheet.getColumnWidth(columnIndex) + 1024, 12000));
             }
@@ -584,7 +590,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private String buildTrendCsv(ExceptionTrendVO trendVO) {
         StringBuilder builder = new StringBuilder();
-        builder.append("日期,考勤记录数,异常记录数,分析记录数,预警记录数,复核记录数,闭环记录数\n");
+        builder.append("日期,考勤记录数,异常记录数,系统处理次数,风险预警数,人工复核数,已完成处置数\n");
         for (ExceptionTrendPointVO point : trendVO.getPoints()) {
             builder.append(point.getDate()).append(',')
                     .append(point.getRecordCount()).append(',')
@@ -696,12 +702,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         Row sectionRow = sheet.createRow(rowIndex++);
         sectionRow.createCell(0).setCellValue("汇总概况");
         sectionRow.getCell(0).setCellStyle(sectionStyle);
-        sheet.addMergedRegion(new CellRangeAddress(sectionRow.getRowNum(), sectionRow.getRowNum(), 0, 11));
+        sheet.addMergedRegion(new CellRangeAddress(sectionRow.getRowNum(), sectionRow.getRowNum(), 0, 14));
 
         Row headerRow = sheet.createRow(rowIndex++);
         String[] headers = new String[] {
-                "部门范围", "考勤记录数", "异常记录数", "分析记录数", "预警记录数", "复核记录数", "闭环记录数",
-                "异常率", "分析覆盖率", "预警触发率", "复核参与率", "闭环率"
+                "部门范围", "考勤记录数", "异常记录数", "系统处理次数", "风险预警数", "人工复核数", "已完成处置数",
+                "待处理预警数", "高风险异常数", "异常率", "系统处理覆盖率", "预警触发率", "复核覆盖率", "处置完成率", "待处理占比"
         };
         for (int index = 0; index < headers.length; index++) {
             Cell cell = headerRow.createCell(index);
@@ -714,23 +720,23 @@ public class StatisticsServiceImpl implements StatisticsService {
         return rowIndex;
     }
 
-    private void writeDepartmentDetailSection(Sheet sheet,
-                                              int rowIndex,
-                                              List<DepartmentStatisticsVO> departments,
-                                              CellStyle sectionStyle,
-                                              CellStyle headerStyle,
-                                              CellStyle textStyle,
-                                              CellStyle numberStyle,
-                                              CellStyle percentStyle) {
+    private int writeDepartmentDetailSection(Sheet sheet,
+                                             int rowIndex,
+                                             List<DepartmentStatisticsVO> departments,
+                                             CellStyle sectionStyle,
+                                             CellStyle headerStyle,
+                                             CellStyle textStyle,
+                                             CellStyle numberStyle,
+                                             CellStyle percentStyle) {
         Row sectionRow = sheet.createRow(rowIndex++);
         sectionRow.createCell(0).setCellValue("部门明细");
         sectionRow.getCell(0).setCellStyle(sectionStyle);
-        sheet.addMergedRegion(new CellRangeAddress(sectionRow.getRowNum(), sectionRow.getRowNum(), 0, 12));
+        sheet.addMergedRegion(new CellRangeAddress(sectionRow.getRowNum(), sectionRow.getRowNum(), 0, 16));
 
         Row headerRow = sheet.createRow(rowIndex++);
         String[] headers = new String[] {
-                "序号", "部门编号", "部门名称", "考勤记录数", "异常记录数", "分析记录数", "预警记录数", "复核记录数", "闭环记录数",
-                "异常率", "分析覆盖率", "预警触发率", "闭环率"
+                "序号", "部门编号", "部门名称", "考勤记录数", "异常记录数", "系统处理次数", "风险预警数", "人工复核数", "已完成处置数",
+                "待处理预警数", "高风险异常数", "异常率", "系统处理覆盖率", "预警触发率", "复核覆盖率", "处置完成率", "待处理占比"
         };
         for (int index = 0; index < headers.length; index++) {
             Cell cell = headerRow.createCell(index);
@@ -745,6 +751,51 @@ public class StatisticsServiceImpl implements StatisticsService {
             serialCell.setCellStyle(numberStyle);
             writeDepartmentStatisticsCells(row, departments.get(index), true, textStyle, numberStyle, percentStyle);
         }
+        return rowIndex;
+    }
+
+    private int writeDepartmentDefinitionSection(Sheet sheet,
+                                                 int rowIndex,
+                                                 CellStyle sectionStyle,
+                                                 CellStyle headerStyle,
+                                                 CellStyle textStyle,
+                                                 CellStyle wrapTextStyle) {
+        Row sectionRow = sheet.createRow(rowIndex++);
+        sectionRow.createCell(0).setCellValue("指标说明");
+        sectionRow.getCell(0).setCellStyle(sectionStyle);
+        sheet.addMergedRegion(new CellRangeAddress(sectionRow.getRowNum(), sectionRow.getRowNum(), 0, 16));
+
+        Row headerRow = sheet.createRow(rowIndex++);
+        Cell indicatorHeader = headerRow.createCell(0);
+        indicatorHeader.setCellValue("指标");
+        indicatorHeader.setCellStyle(headerStyle);
+        Cell descriptionHeader = headerRow.createCell(1);
+        descriptionHeader.setCellValue("说明");
+        descriptionHeader.setCellStyle(headerStyle);
+        sheet.addMergedRegion(new CellRangeAddress(headerRow.getRowNum(), headerRow.getRowNum(), 1, 16));
+
+        String[][] definitions = new String[][] {
+                {"系统处理次数", "系统完成异常识别与分析的次数（含规则判定与智能分析）。"},
+                {"风险预警数", "系统生成并发送给管理人员的风险预警次数。"},
+                {"人工复核数", "管理人员完成人工核查并提交复核结论的次数。"},
+                {"已完成处置数", "风险预警已完成复核并形成处理结论的次数（原“闭环记录数”）。"},
+                {"处置完成率", "已完成处置数 / 风险预警数（原“闭环率”）。"},
+                {"待处理预警数", "风险预警数 - 已完成处置数，用于识别当前待办压力。"},
+                {"待处理占比", "待处理预警数 / 风险预警数。"},
+                {"高风险异常数", "风险等级为高风险的异常数量。"}
+        };
+
+        for (String[] definition : definitions) {
+            Row row = sheet.createRow(rowIndex++);
+            Cell indicatorCell = row.createCell(0);
+            indicatorCell.setCellValue(definition[0]);
+            indicatorCell.setCellStyle(textStyle);
+            Cell descriptionCell = row.createCell(1);
+            descriptionCell.setCellValue(definition[1]);
+            descriptionCell.setCellStyle(wrapTextStyle);
+            sheet.addMergedRegion(new CellRangeAddress(row.getRowNum(), row.getRowNum(), 1, 16));
+        }
+        return rowIndex;
     }
 
     private void writeDepartmentStatisticsCells(Row row,
@@ -753,6 +804,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                                                 CellStyle textStyle,
                                                 CellStyle numberStyle,
                                                 CellStyle percentStyle) {
+        long warningCount = safeLongValue(department.getWarningCount());
+        long completedCount = safeLongValue(department.getClosedLoopCount());
+        long pendingWarningCount = Math.max(warningCount - completedCount, 0L);
+        long highRiskCount = distributionCount(department.getRiskLevelDistribution(), "HIGH");
+
         if (includeDeptId) {
             Cell deptIdCell = row.createCell(1);
             deptIdCell.setCellValue(nullableLongValue(department.getDeptId()));
@@ -773,15 +829,26 @@ public class StatisticsServiceImpl implements StatisticsService {
         writeLongCell(row, startColumn + 3, department.getWarningCount(), numberStyle);
         writeLongCell(row, startColumn + 4, department.getReviewCount(), numberStyle);
         writeLongCell(row, startColumn + 5, department.getClosedLoopCount(), numberStyle);
-        writeRatioCell(row, startColumn + 6, department.getExceptionCount(), department.getRecordCount(), percentStyle);
-        writeRatioCell(row, startColumn + 7, department.getAnalysisCount(), department.getExceptionCount(), percentStyle);
-        writeRatioCell(row, startColumn + 8, department.getWarningCount(), department.getExceptionCount(), percentStyle);
-        if (includeDeptId) {
-            writeRatioCell(row, startColumn + 9, department.getClosedLoopCount(), department.getWarningCount(), percentStyle);
-        } else {
-            writeRatioCell(row, startColumn + 9, department.getReviewCount(), department.getWarningCount(), percentStyle);
-            writeRatioCell(row, startColumn + 10, department.getClosedLoopCount(), department.getWarningCount(), percentStyle);
+        writeLongCell(row, startColumn + 6, Long.valueOf(pendingWarningCount), numberStyle);
+        writeLongCell(row, startColumn + 7, Long.valueOf(highRiskCount), numberStyle);
+        writeRatioCell(row, startColumn + 8, department.getExceptionCount(), department.getRecordCount(), percentStyle);
+        writeRatioCell(row, startColumn + 9, department.getAnalysisCount(), department.getExceptionCount(), percentStyle);
+        writeRatioCell(row, startColumn + 10, department.getWarningCount(), department.getExceptionCount(), percentStyle);
+        writeRatioCell(row, startColumn + 11, department.getReviewCount(), department.getWarningCount(), percentStyle);
+        writeRatioCell(row, startColumn + 12, department.getClosedLoopCount(), department.getWarningCount(), percentStyle);
+        writeRatioCell(row, startColumn + 13, Long.valueOf(pendingWarningCount), department.getWarningCount(), percentStyle);
+    }
+
+    private long safeLongValue(Long value) {
+        return value == null ? 0L : value.longValue();
+    }
+
+    private long distributionCount(Map<String, Long> distribution, String key) {
+        if (distribution == null || !StringUtils.hasText(key)) {
+            return 0L;
         }
+        Long count = distribution.get(key);
+        return count == null ? 0L : count.longValue();
     }
 
     private void writeLongCell(Row row, int columnIndex, Long value, CellStyle style) {
@@ -794,6 +861,10 @@ public class StatisticsServiceImpl implements StatisticsService {
         Cell cell = row.createCell(columnIndex);
         cell.setCellValue(calculateRatioValue(numerator, denominator));
         cell.setCellStyle(style);
+    }
+
+    private String formatPercent(double ratioValue) {
+        return new BigDecimal(ratioValue * 100D).setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString() + "%";
     }
 
     private double calculateRatioValue(Long numerator, Long denominator) {
@@ -883,6 +954,15 @@ public class StatisticsServiceImpl implements StatisticsService {
         CellStyle style = workbook.createCellStyle();
         style.setAlignment(HorizontalAlignment.LEFT);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
+        applyThinBorder(style);
+        return style;
+    }
+
+    private CellStyle createWrapTextStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setAlignment(HorizontalAlignment.LEFT);
+        style.setVerticalAlignment(VerticalAlignment.TOP);
+        style.setWrapText(true);
         applyThinBorder(style);
         return style;
     }

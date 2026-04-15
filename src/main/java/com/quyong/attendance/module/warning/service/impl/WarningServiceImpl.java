@@ -89,6 +89,7 @@ public class WarningServiceImpl implements WarningService {
     private static final String ROLE_EMPLOYEE = "EMPLOYEE";
     private static final String ROLE_SYSTEM = "SYSTEM";
     private static final String BUSINESS_TYPE_WARNING = "WARNING";
+    private static final String ATTENDANCE_EXCEPTION_BUSINESS_TYPE = "ATTENDANCE_EXCEPTION";
     private static final String CATEGORY_EXCEPTION_NOTICE = "EXCEPTION_NOTICE";
     private static final String CATEGORY_WARNING_CREATED = "WARNING_CREATED";
     private static final String CATEGORY_REQUEST_EXPLANATION = "REQUEST_EXPLANATION";
@@ -105,6 +106,7 @@ public class WarningServiceImpl implements WarningService {
     private static final String MESSAGE_TYPE_REVIEW_RESULT = "REVIEW_RESULT";
     private static final String MESSAGE_TYPE_REMINDER = "REMINDER";
     private static final String ABSENT = "ABSENT";
+    private static final String MISSING_CHECKOUT = "MISSING_CHECKOUT";
 
     private final WarningRecordMapper warningRecordMapper;
     private final AttendanceExceptionMapper attendanceExceptionMapper;
@@ -544,8 +546,8 @@ public class WarningServiceImpl implements WarningService {
         vo.setLevel(warningRecord.getLevel());
         vo.setStatus(warningRecord.getStatus());
         vo.setPriorityScore(warningRecord.getPriorityScore());
-        vo.setAiSummary(warningRecord.getAiSummary());
-        vo.setDisposeSuggestion(warningRecord.getDisposeSuggestion());
+        vo.setAiSummary(sanitizeAdviceText(warningRecord.getAiSummary(), "历史系统摘要无法直接显示，请联系管理员查看原始记录。"));
+        vo.setDisposeSuggestion(sanitizeAdviceText(warningRecord.getDisposeSuggestion(), "历史处置建议无法直接显示，请联系管理员查看原始记录。"));
         vo.setDecisionSource(warningRecord.getDecisionSource());
         vo.setSendTime(warningRecord.getSendTime());
         vo.setInteractionStatus(warningRecord.getInteractionStatus());
@@ -571,18 +573,18 @@ public class WarningServiceImpl implements WarningService {
         vo.setExceptionType(attendanceException.getType());
         vo.setExceptionSourceType(attendanceException.getSourceType());
         vo.setExceptionProcessStatus(attendanceException.getProcessStatus());
-        vo.setExceptionDescription(attendanceException.getDescription());
+        vo.setExceptionDescription(sanitizeAdviceText(attendanceException.getDescription(), "历史异常说明无法直接显示，请联系管理员查看原始记录。"));
         vo.setExceptionCreateTime(attendanceException.getCreateTime());
         if (analysis != null) {
             vo.setModelConclusion(analysis.getModelConclusion());
             vo.setConfidenceScore(analysis.getConfidenceScore());
-            vo.setDecisionReason(analysis.getDecisionReason());
-            vo.setSimilarCaseSummary(analysis.getSimilarCaseSummary());
+            vo.setDecisionReason(sanitizeAdviceText(analysis.getDecisionReason(), "历史判定依据无法直接显示，请联系管理员查看原始记录。"));
+            vo.setSimilarCaseSummary(sanitizeAdviceText(analysis.getSimilarCaseSummary(), "历史相似案例摘要无法直接显示，请联系管理员查看原始记录。"));
         }
         if (reviewRecord != null) {
             vo.setReviewResult(reviewRecord.getResult());
-            vo.setReviewComment(reviewRecord.getComment());
-            vo.setReviewAiSuggestion(reviewRecord.getAiReviewSuggestion());
+            vo.setReviewComment(sanitizeAdviceText(reviewRecord.getComment(), "历史复核意见无法直接显示，请联系管理员查看原始记录。"));
+            vo.setReviewAiSuggestion(sanitizeAdviceText(reviewRecord.getAiReviewSuggestion(), "历史复核建议无法直接显示，请联系管理员查看原始记录。"));
             vo.setReviewTime(reviewRecord.getReviewTime());
         }
         if (reviewUser != null) {
@@ -736,9 +738,6 @@ public class WarningServiceImpl implements WarningService {
     @Transactional
     public void notifyReviewResult(Long exceptionId, String reviewResult, String reviewComment) {
         WarningRecord warningRecord = warningRecordMapper.selectByExceptionId(exceptionId);
-        if (warningRecord == null) {
-            return;
-        }
         AttendanceException attendanceException = requireExistingException(exceptionId);
         User targetUser = attendanceException.getUserId() == null ? null : userMapper.selectById(attendanceException.getUserId());
         if (targetUser == null) {
@@ -747,21 +746,25 @@ public class WarningServiceImpl implements WarningService {
         AuthUser authUser = currentAuthUser();
         String resultLabel = "REJECTED".equals(reviewResult) ? "已排除异常" : "已确认异常";
         String message = buildReviewResultMessage(attendanceException, resultLabel, reviewComment);
-        warningRecord.setInteractionStatus(INTERACTION_RESULT_SENT);
-        warningRecord.setLastInteractTime(LocalDateTime.now(clock));
-        warningRecordMapper.updateById(warningRecord);
-        appendInteraction(warningRecord, exceptionId, authUser.getUserId(), authUser.getRoleCode(), MESSAGE_TYPE_REVIEW_RESULT, message);
-        notificationService.push(buildNotification(
-                targetUser.getId(),
-                authUser.getUserId(),
-                warningRecord.getId(),
-                CATEGORY_REVIEW_RESULT,
-                buildWarningTitle(attendanceException, warningRecord) + "处理结果",
-                message,
-                warningRecord.getLevel(),
-                ACTION_VIEW,
-                null
-        ));
+        if (warningRecord != null) {
+            warningRecord.setInteractionStatus(INTERACTION_RESULT_SENT);
+            warningRecord.setLastInteractTime(LocalDateTime.now(clock));
+            warningRecordMapper.updateById(warningRecord);
+            appendInteraction(warningRecord, exceptionId, authUser.getUserId(), authUser.getRoleCode(), MESSAGE_TYPE_REVIEW_RESULT, message);
+            notificationService.push(buildNotification(
+                    targetUser.getId(),
+                    authUser.getUserId(),
+                    warningRecord.getId(),
+                    CATEGORY_REVIEW_RESULT,
+                    buildWarningTitle(attendanceException, warningRecord) + "处理结果",
+                    message,
+                    warningRecord.getLevel(),
+                    ACTION_VIEW,
+                    null
+            ));
+            return;
+        }
+        notificationService.push(buildDirectReviewResultNotification(targetUser.getId(), authUser.getUserId(), attendanceException, message));
     }
 
     @Override
@@ -819,6 +822,74 @@ public class WarningServiceImpl implements WarningService {
             attendanceException.setSourceType(SOURCE_RULE);
             attendanceException.setDescription(buildAbsenceDescription(cutoffTime));
             attendanceException.setProcessStatus("PENDING");
+            attendanceExceptionMapper.insert(attendanceException);
+            syncWarningByExceptionId(attendanceException.getId());
+            createdCount++;
+        }
+        return createdCount;
+    }
+
+    @Override
+    @Transactional
+    public int runMissingCheckoutCheck() {
+        Rule rule = ruleService.getEnabledRule();
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDate targetDate = now.toLocalDate().minusDays(1L);
+        if (targetDate.getDayOfWeek() == DayOfWeek.SATURDAY || targetDate.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            return 0;
+        }
+
+        Role employeeRole = roleMapper.selectOne(Wrappers.<Role>lambdaQuery()
+                .eq(Role::getCode, ROLE_EMPLOYEE)
+                .eq(Role::getStatus, 1)
+                .last("LIMIT 1"));
+        if (employeeRole == null) {
+            return 0;
+        }
+
+        LocalDateTime dayStart = targetDate.atStartOfDay();
+        LocalDateTime nextDayStart = targetDate.plusDays(1L).atStartOfDay();
+        LocalDateTime settlementTime = nextDayStart.minusSeconds(1L);
+        List<User> employees = userMapper.selectList(Wrappers.<User>lambdaQuery()
+                .eq(User::getRoleId, employeeRole.getId())
+                .eq(User::getStatus, 1)
+                .orderByAsc(User::getId));
+        int createdCount = 0;
+        for (User employee : employees) {
+            Long existingMissingCheckoutCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
+                    .eq(AttendanceException::getUserId, employee.getId())
+                    .eq(AttendanceException::getType, MISSING_CHECKOUT)
+                    .ge(AttendanceException::getCreateTime, dayStart)
+                    .lt(AttendanceException::getCreateTime, nextDayStart));
+            if (existingMissingCheckoutCount != null && existingMissingCheckoutCount.longValue() > 0L) {
+                continue;
+            }
+            Long checkedInCount = attendanceRecordMapper.selectCount(Wrappers.<AttendanceRecord>lambdaQuery()
+                    .eq(AttendanceRecord::getUserId, employee.getId())
+                    .eq(AttendanceRecord::getCheckType, "IN")
+                    .ge(AttendanceRecord::getCheckTime, dayStart)
+                    .lt(AttendanceRecord::getCheckTime, nextDayStart));
+            if (checkedInCount == null || checkedInCount.longValue() <= 0L) {
+                continue;
+            }
+            Long checkedOutCount = attendanceRecordMapper.selectCount(Wrappers.<AttendanceRecord>lambdaQuery()
+                    .eq(AttendanceRecord::getUserId, employee.getId())
+                    .eq(AttendanceRecord::getCheckType, "OUT")
+                    .ge(AttendanceRecord::getCheckTime, dayStart)
+                    .lt(AttendanceRecord::getCheckTime, nextDayStart));
+            if (checkedOutCount != null && checkedOutCount.longValue() > 0L) {
+                continue;
+            }
+
+            AttendanceException attendanceException = new AttendanceException();
+            attendanceException.setRecordId(null);
+            attendanceException.setUserId(employee.getId());
+            attendanceException.setType(MISSING_CHECKOUT);
+            attendanceException.setRiskLevel("MEDIUM");
+            attendanceException.setSourceType(SOURCE_RULE);
+            attendanceException.setDescription(buildMissingCheckoutDescription(rule.getEndTime(), targetDate));
+            attendanceException.setProcessStatus("PENDING");
+            attendanceException.setCreateTime(settlementTime);
             attendanceExceptionMapper.insert(attendanceException);
             syncWarningByExceptionId(attendanceException.getId());
             createdCount++;
@@ -1041,8 +1112,8 @@ public class WarningServiceImpl implements WarningService {
         vo.setLevel(warningRecord.getLevel());
         vo.setStatus(warningRecord.getStatus());
         vo.setPriorityScore(warningRecord.getPriorityScore());
-        vo.setAiSummary(warningRecord.getAiSummary());
-        vo.setDisposeSuggestion(warningRecord.getDisposeSuggestion());
+        vo.setAiSummary(sanitizeAdviceText(warningRecord.getAiSummary(), "历史系统摘要无法直接显示，请联系管理员查看原始记录。"));
+        vo.setDisposeSuggestion(sanitizeAdviceText(warningRecord.getDisposeSuggestion(), "历史处置建议无法直接显示，请联系管理员查看原始记录。"));
         vo.setDecisionSource(warningRecord.getDecisionSource());
         vo.setSendTime(warningRecord.getSendTime());
         vo.setOverdue(Boolean.valueOf(isOverdue(warningRecord)));
@@ -1076,7 +1147,7 @@ public class WarningServiceImpl implements WarningService {
         vo.setSenderUserId(entity.getSenderUserId());
         vo.setSenderRole(entity.getSenderRole());
         vo.setMessageType(entity.getMessageType());
-        vo.setContent(entity.getContent());
+        vo.setContent(sanitizeInteractionContent(entity.getContent(), entity.getMessageType()));
         vo.setCreateTime(entity.getCreateTime());
         if (ROLE_SYSTEM.equals(entity.getSenderRole()) || entity.getSenderUserId() == null) {
             vo.setSenderName("系统");
@@ -1148,7 +1219,7 @@ public class WarningServiceImpl implements WarningService {
                     warningRecord.getId(),
                     CATEGORY_EMPLOYEE_REPLY,
                     buildWarningTitle(attendanceException, warningRecord) + "已收到员工说明",
-                    limitText(replyContent, 240),
+                    sanitizeInteractionContent(limitText(replyContent, 240), MESSAGE_TYPE_EMPLOYEE_REPLY),
                     warningRecord.getLevel(),
                     ACTION_REVIEW,
                     null
@@ -1179,6 +1250,23 @@ public class WarningServiceImpl implements WarningService {
         return command;
     }
 
+    private NotificationCreateCommand buildDirectReviewResultNotification(Long recipientUserId,
+                                                                          Long senderUserId,
+                                                                          AttendanceException attendanceException,
+                                                                          String content) {
+        NotificationCreateCommand command = new NotificationCreateCommand();
+        command.setRecipientUserId(recipientUserId);
+        command.setSenderUserId(senderUserId);
+        command.setBusinessType(ATTENDANCE_EXCEPTION_BUSINESS_TYPE);
+        command.setBusinessId(attendanceException == null ? null : attendanceException.getId());
+        command.setCategory(CATEGORY_REVIEW_RESULT);
+        command.setTitle(resolveExceptionName(attendanceException == null ? null : attendanceException.getType()) + "人工复核结果");
+        command.setContent(content);
+        command.setLevel(attendanceException == null ? "INFO" : attendanceException.getRiskLevel());
+        command.setActionCode(ACTION_VIEW);
+        return command;
+    }
+
     private void appendInteraction(WarningRecord warningRecord,
                                    Long exceptionId,
                                    Long senderUserId,
@@ -1191,7 +1279,7 @@ public class WarningServiceImpl implements WarningService {
         record.setSenderUserId(senderUserId);
         record.setSenderRole(senderRole);
         record.setMessageType(messageType);
-        record.setContent(limitText(content, 2000));
+        record.setContent(sanitizeInteractionContent(limitText(content, 2000), messageType));
         warningInteractionRecordMapper.insert(record);
     }
 
@@ -1250,14 +1338,28 @@ public class WarningServiceImpl implements WarningService {
     private String buildReviewResultMessage(AttendanceException attendanceException, String resultLabel, String reviewComment) {
         StringBuilder builder = new StringBuilder();
         builder.append("管理员已完成").append(resolveExceptionName(attendanceException == null ? null : attendanceException.getType())).append("复核，结果为").append(resultLabel);
+        builder.append("；当前考勤记录已更新为").append(resolveReviewedRecordStatusLabel(resultLabel));
         if (StringUtils.hasText(reviewComment)) {
             builder.append("；复核意见：").append(reviewComment.trim());
         }
         return builder.toString();
     }
 
+    private String resolveReviewedRecordStatusLabel(String resultLabel) {
+        if ("已排除异常".equals(resultLabel)) {
+            return "正常";
+        }
+        return "异常";
+    }
+
     private String buildAbsenceDescription(LocalTime cutoffTime) {
         return "截至" + cutoffTime + "仍未完成上班打卡，系统按考勤规则判定为缺勤";
+    }
+
+    private String buildMissingCheckoutDescription(LocalTime cutoffTime, LocalDate targetDate) {
+        String targetDateText = targetDate == null ? "前一日" : targetDate.toString();
+        String cutoffTimeText = cutoffTime == null ? "--:--" : cutoffTime.toString();
+        return "截至" + targetDateText + " 24:00 仍未完成下班打卡，系统按考勤规则判定为下班缺卡（规则下班时间" + cutoffTimeText + "）";
     }
 
     private String resolveRiskLevelName(String level) {
@@ -1280,6 +1382,9 @@ public class WarningServiceImpl implements WarningService {
         }
         if (ABSENT.equals(type)) {
             return "缺勤";
+        }
+        if (MISSING_CHECKOUT.equals(type)) {
+            return "下班缺卡";
         }
         if ("LATE".equals(type)) {
             return "迟到";
@@ -1342,6 +1447,64 @@ public class WarningServiceImpl implements WarningService {
             return normalized;
         }
         return normalized.substring(0, maxLength);
+    }
+
+    private String sanitizeInteractionContent(String content, String messageType) {
+        return sanitizeQuestionPlaceholder(content, resolveInteractionFallback(messageType));
+    }
+
+    private String sanitizeAdviceText(String content, String fallback) {
+        return sanitizeQuestionPlaceholder(content, fallback);
+    }
+
+    private String resolveInteractionFallback(String messageType) {
+        if (MESSAGE_TYPE_REQUEST_EXPLANATION.equals(messageType)) {
+            return "历史说明请求内容无法直接显示，请联系管理员重新发起说明请求。";
+        }
+        if (MESSAGE_TYPE_EMPLOYEE_REPLY.equals(messageType)) {
+            return "历史员工说明内容无法直接显示，请联系员工重新补充说明。";
+        }
+        if (MESSAGE_TYPE_REVIEW_RESULT.equals(messageType)) {
+            return "历史复核结果说明无法直接显示，请联系管理员查看原始记录。";
+        }
+        return "历史处理记录内容无法直接显示，请联系管理员查看原始记录。";
+    }
+
+    private String sanitizeQuestionPlaceholder(String value, String fallback) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        String normalized = value.trim();
+        if (!looksLikeQuestionPlaceholder(normalized)) {
+            return normalized;
+        }
+        return StringUtils.hasText(fallback) ? fallback : normalized;
+    }
+
+    private boolean looksLikeQuestionPlaceholder(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        int placeholderCount = 0;
+        int meaningfulCount = 0;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isWhitespace(current)
+                    || current == ',' || current == '，'
+                    || current == '.' || current == '。'
+                    || current == ';' || current == '；'
+                    || current == ':' || current == '：'
+                    || current == '!' || current == '！'
+                    || current == '(' || current == ')'
+                    || current == '（' || current == '）') {
+                continue;
+            }
+            meaningfulCount++;
+            if (current == '?' || current == '？' || current == '\uFFFD') {
+                placeholderCount++;
+            }
+        }
+        return meaningfulCount >= 3 && placeholderCount == meaningfulCount;
     }
 
     private AuthUser currentAuthUser() {

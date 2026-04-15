@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.quyong.attendance.common.api.ResultCode;
 import com.quyong.attendance.common.exception.BusinessException;
 import com.quyong.attendance.module.auth.model.AuthUser;
+import com.quyong.attendance.module.attendance.entity.AttendanceRecord;
+import com.quyong.attendance.module.attendance.mapper.AttendanceRecordMapper;
 import com.quyong.attendance.module.exceptiondetect.entity.AttendanceException;
 import com.quyong.attendance.module.exceptiondetect.entity.ExceptionAnalysis;
 import com.quyong.attendance.module.exceptiondetect.mapper.AttendanceExceptionMapper;
@@ -35,7 +37,13 @@ public class ReviewServiceImpl implements ReviewService {
     private static final String ATTENDANCE_EXCEPTION_BUSINESS_TYPE = "ATTENDANCE_EXCEPTION";
     private static final String REVIEW_FEEDBACK = "REVIEW_FEEDBACK";
     private static final String TRUE_POSITIVE = "TRUE_POSITIVE";
+    private static final String REVIEWED_STATUS = "REVIEWED";
+    private static final String REVIEW_RESULT_CONFIRMED = "CONFIRMED";
+    private static final String REVIEW_RESULT_REJECTED = "REJECTED";
+    private static final String RECORD_STATUS_NORMAL = "NORMAL";
+    private static final String RECORD_STATUS_ABNORMAL = "ABNORMAL";
 
+    private final AttendanceRecordMapper attendanceRecordMapper;
     private final AttendanceExceptionMapper attendanceExceptionMapper;
     private final ExceptionAnalysisMapper exceptionAnalysisMapper;
     private final DecisionTraceService decisionTraceService;
@@ -44,13 +52,15 @@ public class ReviewServiceImpl implements ReviewService {
     private final OperationLogService operationLogService;
     private final WarningService warningService;
 
-    public ReviewServiceImpl(AttendanceExceptionMapper attendanceExceptionMapper,
+    public ReviewServiceImpl(AttendanceRecordMapper attendanceRecordMapper,
+                             AttendanceExceptionMapper attendanceExceptionMapper,
                              ExceptionAnalysisMapper exceptionAnalysisMapper,
                              DecisionTraceService decisionTraceService,
                              ReviewRecordMapper reviewRecordMapper,
                              ReviewValidationSupport reviewValidationSupport,
                              OperationLogService operationLogService,
                              WarningService warningService) {
+        this.attendanceRecordMapper = attendanceRecordMapper;
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.decisionTraceService = decisionTraceService;
@@ -129,8 +139,9 @@ public class ReviewServiceImpl implements ReviewService {
         reviewRecord.setSimilarCaseSummary(assistantVO.getSimilarCaseSummary());
         reviewRecordMapper.insert(reviewRecord);
 
-        attendanceException.setProcessStatus("REVIEWED");
+        attendanceException.setProcessStatus(REVIEWED_STATUS);
         attendanceExceptionMapper.updateById(attendanceException);
+        syncAttendanceRecordStatus(attendanceException, validatedDTO.getReviewResult());
         warningService.markProcessedByExceptionId(validatedDTO.getExceptionId());
         warningService.notifyReviewResult(validatedDTO.getExceptionId(), validatedDTO.getReviewResult(), validatedDTO.getReviewComment());
         operationLogService.save(reviewUserId, "REVIEW", currentAuthUser().getRealName() + "复核异常记录" + validatedDTO.getExceptionId());
@@ -167,6 +178,22 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "异常记录不存在");
         }
         return attendanceException;
+    }
+
+    private void syncAttendanceRecordStatus(AttendanceException attendanceException, String reviewResult) {
+        if (attendanceException == null || attendanceException.getRecordId() == null) {
+            return;
+        }
+        AttendanceRecord attendanceRecord = attendanceRecordMapper.selectById(attendanceException.getRecordId());
+        if (attendanceRecord == null) {
+            return;
+        }
+        if (REVIEW_RESULT_REJECTED.equals(reviewResult)) {
+            attendanceRecord.setStatus(RECORD_STATUS_NORMAL);
+        } else if (REVIEW_RESULT_CONFIRMED.equals(reviewResult)) {
+            attendanceRecord.setStatus(RECORD_STATUS_ABNORMAL);
+        }
+        attendanceRecordMapper.updateById(attendanceRecord);
     }
 
     private String joinSuggestion(String reasonSummary, String actionSuggestion) {

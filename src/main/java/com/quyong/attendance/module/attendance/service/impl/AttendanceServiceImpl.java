@@ -23,7 +23,6 @@ import com.quyong.attendance.module.auth.model.AuthUser;
 import com.quyong.attendance.module.device.entity.Device;
 import com.quyong.attendance.module.device.mapper.DeviceMapper;
 import com.quyong.attendance.module.device.support.DeviceValidationSupport;
-import com.quyong.attendance.module.exceptiondetect.dto.ComplexCheckDTO;
 import com.quyong.attendance.module.exceptiondetect.dto.RiskFeaturesDTO;
 import com.quyong.attendance.module.exceptiondetect.dto.RuleCheckDTO;
 import com.quyong.attendance.module.exceptiondetect.entity.AttendanceException;
@@ -49,6 +48,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -66,8 +66,9 @@ public class AttendanceServiceImpl implements AttendanceService {
     private static final String BUSINESS_TYPE_ATTENDANCE_REPAIR = "ATTENDANCE_REPAIR";
     private static final String CATEGORY_REPAIR_RESULT = "REPAIR_RESULT";
     private static final String ACTION_VIEW = "VIEW";
+    private static final String TYPE_ABSENT = "ABSENT";
+    private static final String TYPE_MISSING_CHECKOUT = "MISSING_CHECKOUT";
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final BigDecimal COMPLEX_CHECK_FACE_SCORE_THRESHOLD = new BigDecimal("90");
 
     private final AttendanceRecordMapper attendanceRecordMapper;
     private final AttendanceRepairMapper attendanceRepairMapper;
@@ -76,6 +77,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserValidationSupport userValidationSupport;
     private final DeviceValidationSupport deviceValidationSupport;
     private final FaceService faceService;
+    private final AttendanceClosedLoopAsyncService attendanceClosedLoopAsyncService;
     private final OperationLogService operationLogService;
     private final AttendanceExceptionMapper attendanceExceptionMapper;
     private final ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator;
@@ -91,6 +93,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                                  UserValidationSupport userValidationSupport,
                                  DeviceValidationSupport deviceValidationSupport,
                                  FaceService faceService,
+                                 AttendanceClosedLoopAsyncService attendanceClosedLoopAsyncService,
                                  OperationLogService operationLogService,
                                  AttendanceExceptionMapper attendanceExceptionMapper,
                                  ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator,
@@ -105,6 +108,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.userValidationSupport = userValidationSupport;
         this.deviceValidationSupport = deviceValidationSupport;
         this.faceService = faceService;
+        this.attendanceClosedLoopAsyncService = attendanceClosedLoopAsyncService;
         this.operationLogService = operationLogService;
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisOrchestrator = exceptionAnalysisOrchestrator;
@@ -158,7 +162,13 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         AttendanceRecord savedRecord = attendanceRecordMapper.selectById(attendanceRecord.getId());
         RiskFeaturesDTO riskFeatures = buildRiskFeatures(savedRecord);
-        runClosedLoop(savedRecord, riskFeatures);
+        RuleCheckDTO ruleCheckDTO = new RuleCheckDTO();
+        ruleCheckDTO.setRecordId(savedRecord.getId());
+        ExceptionDecisionVO ruleDecision = exceptionAnalysisOrchestrator.ruleCheck(ruleCheckDTO);
+        if (ruleDecision != null && ruleDecision.getExceptionId() != null) {
+            warningService.syncWarningByExceptionId(ruleDecision.getExceptionId());
+        }
+        attendanceClosedLoopAsyncService.runClosedLoop(savedRecord, riskFeatures, ruleDecision);
         savedRecord = attendanceRecordMapper.selectById(attendanceRecord.getId());
         AttendanceCheckinVO vo = new AttendanceCheckinVO();
         vo.setRecordId(savedRecord.getId());
@@ -355,38 +365,6 @@ public class AttendanceServiceImpl implements AttendanceService {
         return vo;
     }
 
-    private void runClosedLoop(AttendanceRecord attendanceRecord, RiskFeaturesDTO riskFeatures) {
-        RuleCheckDTO ruleCheckDTO = new RuleCheckDTO();
-        ruleCheckDTO.setRecordId(attendanceRecord.getId());
-        ExceptionDecisionVO ruleDecision = exceptionAnalysisOrchestrator.ruleCheck(ruleCheckDTO);
-        syncWarning(ruleDecision);
-
-        if (shouldSkipComplexCheck(ruleDecision)) {
-            return;
-        }
-
-        if (!shouldTriggerComplexCheck(riskFeatures)) {
-            return;
-        }
-
-        ComplexCheckDTO complexCheckDTO = new ComplexCheckDTO();
-        complexCheckDTO.setRecordId(attendanceRecord.getId());
-        complexCheckDTO.setUserId(attendanceRecord.getUserId());
-        complexCheckDTO.setRiskFeatures(riskFeatures);
-        syncWarning(exceptionAnalysisOrchestrator.complexCheck(complexCheckDTO));
-    }
-
-    private boolean shouldSkipComplexCheck(ExceptionDecisionVO ruleDecision) {
-        return ruleDecision != null && "MULTI_LOCATION_CONFLICT".equals(ruleDecision.getType());
-    }
-
-    private void syncWarning(ExceptionDecisionVO decisionVO) {
-        if (decisionVO == null || decisionVO.getExceptionId() == null) {
-            return;
-        }
-        warningService.syncWarningByExceptionId(decisionVO.getExceptionId());
-    }
-
     private RiskFeaturesDTO buildRiskFeatures(AttendanceRecord attendanceRecord) {
         RiskFeaturesDTO riskFeatures = new RiskFeaturesDTO();
         riskFeatures.setFaceScore(attendanceRecord.getFaceScore());
@@ -400,23 +378,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         riskFeatures.setLocationChanged(previousRecord != null && !Objects.equals(previousRecord.getLocation(), attendanceRecord.getLocation()));
 
         Long historyAbnormalCount = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
-                .eq(AttendanceException::getUserId, attendanceRecord.getUserId()));
+                .eq(AttendanceException::getUserId, attendanceRecord.getUserId())
+                .in(AttendanceException::getSourceType, "MODEL", "MODEL_FALLBACK"));
         riskFeatures.setHistoryAbnormalCount(historyAbnormalCount == null ? 0 : historyAbnormalCount.intValue());
         return riskFeatures;
-    }
-
-    private boolean shouldTriggerComplexCheck(RiskFeaturesDTO riskFeatures) {
-        if (riskFeatures == null) {
-            return false;
-        }
-        if (Boolean.TRUE.equals(riskFeatures.getDeviceChanged()) || Boolean.TRUE.equals(riskFeatures.getLocationChanged())) {
-            return true;
-        }
-        if (riskFeatures.getHistoryAbnormalCount() != null && riskFeatures.getHistoryAbnormalCount().intValue() > 0) {
-            return true;
-        }
-        return riskFeatures.getFaceScore() != null
-                && riskFeatures.getFaceScore().compareTo(COMPLEX_CHECK_FACE_SCORE_THRESHOLD) < 0;
     }
 
     private Long resolveRepairSourceRecordId(AttendanceRepairDTO validatedDTO, User user) {
@@ -430,6 +395,10 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         AttendanceRecord sourceRecord = attendanceRecordMapper.selectById(sourceRecordId);
         if (sourceRecord == null) {
+            AttendanceException contextException = attendanceExceptionMapper.selectById(sourceRecordId);
+            if (isRepairableContextException(contextException, validatedDTO)) {
+                return null;
+            }
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "补卡申请关联记录不存在");
         }
         if (!sourceRecord.getUserId().equals(validatedDTO.getUserId())) {
@@ -442,10 +411,27 @@ public class AttendanceServiceImpl implements AttendanceService {
         return sourceRecordId;
     }
 
+    private boolean isRepairableContextException(AttendanceException attendanceException, AttendanceRepairDTO validatedDTO) {
+        if (attendanceException == null || validatedDTO == null) {
+            return false;
+        }
+        if (attendanceException.getRecordId() != null || !Objects.equals(attendanceException.getUserId(), validatedDTO.getUserId())) {
+            return false;
+        }
+        if ("IN".equals(validatedDTO.getCheckType())) {
+            return TYPE_ABSENT.equals(attendanceException.getType());
+        }
+        if ("OUT".equals(validatedDTO.getCheckType())) {
+            return TYPE_MISSING_CHECKOUT.equals(attendanceException.getType());
+        }
+        return false;
+    }
+
     private boolean isRepairableStatus(String status) {
         String normalized = status == null ? "" : status.trim().toUpperCase();
         return "ABNORMAL".equals(normalized)
                 || "ABSENT".equals(normalized)
+                || TYPE_MISSING_CHECKOUT.equals(normalized)
                 || "LATE".equals(normalized)
                 || "EARLY_LEAVE".equals(normalized);
     }
@@ -500,6 +486,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         attendanceRepair.setRecordId(attendanceRecord.getId());
         attendanceRepair.setStatus(STATUS_REPAIR_APPROVED);
+        markSameDayContextExceptionsReviewed(attendanceRepair);
     }
 
     private void approveLinkedRepair(AttendanceRepair attendanceRepair) {
@@ -524,18 +511,61 @@ public class AttendanceServiceImpl implements AttendanceService {
         markRecordExceptionsReviewed(sourceRecord.getId());
         attendanceRepair.setRecordId(sourceRecord.getId());
         attendanceRepair.setStatus(STATUS_REPAIR_APPROVED);
+        markSameDayContextExceptionsReviewed(attendanceRepair);
     }
 
     private void markRecordExceptionsReviewed(Long recordId) {
         if (recordId == null) {
             return;
         }
-        attendanceExceptionMapper.update(
-                null,
-                Wrappers.<AttendanceException>lambdaUpdate()
-                        .eq(AttendanceException::getRecordId, recordId)
-                        .set(AttendanceException::getProcessStatus, EXCEPTION_STATUS_REVIEWED)
-        );
+        List<AttendanceException> exceptions = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getRecordId, recordId)
+                .ne(AttendanceException::getProcessStatus, EXCEPTION_STATUS_REVIEWED));
+        markExceptionsReviewed(exceptions);
+    }
+
+    private void markSameDayContextExceptionsReviewed(AttendanceRepair attendanceRepair) {
+        if (attendanceRepair == null
+                || attendanceRepair.getUserId() == null
+                || attendanceRepair.getCheckTime() == null) {
+            return;
+        }
+        String contextExceptionType = resolveContextExceptionType(attendanceRepair.getCheckType());
+        if (!StringUtils.hasText(contextExceptionType)) {
+            return;
+        }
+        LocalDate targetDay = attendanceRepair.getCheckTime().toLocalDate();
+        LocalDateTime dayStart = targetDay.atStartOfDay();
+        LocalDateTime nextDayStart = targetDay.plusDays(1L).atStartOfDay();
+        List<AttendanceException> exceptions = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+                .eq(AttendanceException::getUserId, attendanceRepair.getUserId())
+                .eq(AttendanceException::getType, contextExceptionType)
+                .isNull(AttendanceException::getRecordId)
+                .ge(AttendanceException::getCreateTime, dayStart)
+                .lt(AttendanceException::getCreateTime, nextDayStart)
+                .ne(AttendanceException::getProcessStatus, EXCEPTION_STATUS_REVIEWED));
+        markExceptionsReviewed(exceptions);
+    }
+
+    private String resolveContextExceptionType(String checkType) {
+        if ("IN".equals(checkType)) {
+            return TYPE_ABSENT;
+        }
+        if ("OUT".equals(checkType)) {
+            return TYPE_MISSING_CHECKOUT;
+        }
+        return null;
+    }
+
+    private void markExceptionsReviewed(List<AttendanceException> exceptions) {
+        if (exceptions == null || exceptions.isEmpty()) {
+            return;
+        }
+        for (AttendanceException attendanceException : exceptions) {
+            attendanceException.setProcessStatus(EXCEPTION_STATUS_REVIEWED);
+            attendanceExceptionMapper.updateById(attendanceException);
+            warningService.markProcessedByExceptionId(attendanceException.getId());
+        }
     }
 
     private NotificationCreateCommand buildRepairResultNotification(Long recipientUserId,

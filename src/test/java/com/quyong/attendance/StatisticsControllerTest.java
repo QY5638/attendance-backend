@@ -319,9 +319,12 @@ class StatisticsControllerTest {
             assertEquals("汇总概况", workbook.getSheetAt(0).getRow(4).getCell(0).getStringCellValue());
             assertEquals("全部部门", workbook.getSheetAt(0).getRow(6).getCell(0).getStringCellValue());
             assertEquals("部门明细", workbook.getSheetAt(0).getRow(8).getCell(0).getStringCellValue());
-            assertEquals("异常率", workbook.getSheetAt(0).getRow(9).getCell(9).getStringCellValue());
+            assertEquals("处置完成率", workbook.getSheetAt(0).getRow(5).getCell(13).getStringCellValue());
+            assertEquals("异常率", workbook.getSheetAt(0).getRow(9).getCell(11).getStringCellValue());
             assertEquals("技术部", workbook.getSheetAt(0).getRow(10).getCell(2).getStringCellValue());
             assertEquals("行政部", workbook.getSheetAt(0).getRow(11).getCell(2).getStringCellValue());
+            assertEquals("指标说明", workbook.getSheetAt(0).getRow(13).getCell(0).getStringCellValue());
+            assertEquals("系统处理次数", workbook.getSheetAt(0).getRow(15).getCell(0).getStringCellValue());
         }
     }
 

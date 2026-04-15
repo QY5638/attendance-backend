@@ -42,6 +42,7 @@ class FaceLivenessIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM notificationRecord");
         jdbcTemplate.execute("DELETE FROM faceRegisterApproval");
         jdbcTemplate.execute("DELETE FROM faceFeature");
         jdbcTemplate.execute("DELETE FROM attendanceRecord");
@@ -199,6 +200,16 @@ class FaceLivenessIntegrationTest {
                 .andExpect(jsonPath("$.data.id").value(String.valueOf(approvalId)))
                 .andExpect(jsonPath("$.data.userId").value("1001"))
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        mockMvc.perform(get("/api/notification/list")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .param("pageNum", "1")
+                        .param("pageSize", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].category").value("FACE_REGISTER_RESULT"))
+                .andExpect(jsonPath("$.data.records[0].title").value("人脸采集申请处理结果"));
 
         JsonNode proof = completeLiveness(employeeToken, "face-image-approved");
         mockMvc.perform(post("/api/face/register")

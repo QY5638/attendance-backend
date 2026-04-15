@@ -39,6 +39,8 @@ public interface WarningService {
 
     int runAbsenceCheck();
 
+    int runMissingCheckoutCheck();
+
     int runReminderCheck();
 
     PageResult<RiskLevelConfigVO> listRiskLevels(RiskLevelQueryDTO queryDTO);
