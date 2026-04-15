@@ -17,6 +17,8 @@ import com.quyong.attendance.module.face.mapper.FaceRegisterApprovalMapper;
 import com.quyong.attendance.module.face.service.FaceRegisterApprovalService;
 import com.quyong.attendance.module.face.vo.FaceRegisterApprovalVO;
 import com.quyong.attendance.module.face.vo.FaceRegisterStatusVO;
+import com.quyong.attendance.module.notification.dto.NotificationCreateCommand;
+import com.quyong.attendance.module.notification.service.NotificationService;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.mapper.UserMapper;
@@ -42,23 +44,28 @@ public class FaceRegisterApprovalServiceImpl implements FaceRegisterApprovalServ
     private static final String STATUS_APPROVED = "APPROVED";
     private static final String STATUS_REJECTED = "REJECTED";
     private static final String STATUS_USED = "USED";
+    private static final String BUSINESS_TYPE_FACE_REGISTER_APPROVAL = "FACE_REGISTER_APPROVAL";
+    private static final String CATEGORY_FACE_REGISTER_RESULT = "FACE_REGISTER_RESULT";
 
     private final FaceFeatureMapper faceFeatureMapper;
     private final FaceRegisterApprovalMapper faceRegisterApprovalMapper;
     private final UserMapper userMapper;
     private final DepartmentMapper departmentMapper;
     private final OperationLogService operationLogService;
+    private final NotificationService notificationService;
 
     public FaceRegisterApprovalServiceImpl(FaceFeatureMapper faceFeatureMapper,
                                            FaceRegisterApprovalMapper faceRegisterApprovalMapper,
                                            UserMapper userMapper,
                                            DepartmentMapper departmentMapper,
-                                           OperationLogService operationLogService) {
+                                           OperationLogService operationLogService,
+                                           NotificationService notificationService) {
         this.faceFeatureMapper = faceFeatureMapper;
         this.faceRegisterApprovalMapper = faceRegisterApprovalMapper;
         this.userMapper = userMapper;
         this.departmentMapper = departmentMapper;
         this.operationLogService = operationLogService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -193,12 +200,42 @@ public class FaceRegisterApprovalServiceImpl implements FaceRegisterApprovalServ
         approval.setReviewComment(normalizeText(safe.getReviewComment()));
         approval.setReviewTime(LocalDateTime.now());
         faceRegisterApprovalMapper.updateById(approval);
+        notificationService.push(buildFaceRegisterResultNotification(approval, safeReviewUserId));
 
         User applicant = userMapper.selectById(approval.getUserId());
         String logType = STATUS_APPROVED.equals(approval.getStatus()) ? "FACE_REGISTER_APPROVE" : "FACE_REGISTER_REJECT";
         String actionText = STATUS_APPROVED.equals(approval.getStatus()) ? "审批通过" : "审批驳回";
         operationLogService.save(safeReviewUserId, logType, resolveUserDisplayName(applicant, approval.getUserId()) + "的人脸重录申请" + actionText);
         return toVO(approval);
+    }
+
+    private NotificationCreateCommand buildFaceRegisterResultNotification(FaceRegisterApproval approval, Long reviewUserId) {
+        if (approval == null || approval.getId() == null || approval.getUserId() == null) {
+            return null;
+        }
+
+        String reviewComment = normalizeText(approval.getReviewComment());
+        StringBuilder contentBuilder = new StringBuilder();
+        if (STATUS_APPROVED.equals(approval.getStatus())) {
+            contentBuilder.append("你的人脸采集申请已通过，可前往人脸采集页面重新录入。");
+        } else {
+            contentBuilder.append("你的人脸采集申请未通过，可根据处理说明调整后重新提交。");
+        }
+        if (StringUtils.hasText(reviewComment)) {
+            contentBuilder.append("；处理说明：").append(reviewComment);
+        }
+
+        NotificationCreateCommand command = new NotificationCreateCommand();
+        command.setRecipientUserId(approval.getUserId());
+        command.setSenderUserId(reviewUserId);
+        command.setBusinessType(BUSINESS_TYPE_FACE_REGISTER_APPROVAL);
+        command.setBusinessId(approval.getId());
+        command.setCategory(CATEGORY_FACE_REGISTER_RESULT);
+        command.setTitle("人脸采集申请处理结果");
+        command.setContent(limitText(contentBuilder.toString(), 1000));
+        command.setLevel(STATUS_APPROVED.equals(approval.getStatus()) ? "INFO" : "MEDIUM");
+        command.setActionCode("VIEW");
+        return command;
     }
 
     @Override

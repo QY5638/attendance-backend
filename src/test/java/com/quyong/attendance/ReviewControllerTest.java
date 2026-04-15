@@ -202,12 +202,54 @@ class ReviewControllerTest {
         );
         org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
 
+        String attendanceStatus = jdbcTemplate.queryForObject(
+                "SELECT status FROM attendanceRecord WHERE id = 2003",
+                String.class
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("ABNORMAL", attendanceStatus);
+
         Integer reviewLogCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM operationLog WHERE userId = ? AND type = 'REVIEW'",
                 Integer.class,
                 9001L
         );
         org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), reviewLogCount);
+    }
+
+    @Test
+    void shouldRejectReviewAndSyncAttendanceStatusAndEmployeeNotification() throws Exception {
+        insertExceptionAnalysis(4001L, 3001L, 8001L, "输入摘要", "{\"conclusion\":\"PROXY_CHECKIN\"}", "PROXY_CHECKIN", "92.50", "分析层判定依据", "建议优先人工复核", "电脑设备与地点异常共同提升风险", "建议优先人工复核", "存在相似电脑设备异常与低分值组合案例", "v1.0");
+        insertDecisionTrace(9501L, "ATTENDANCE_EXCEPTION", 3001L, "规则识别电脑设备异常", "模型判定疑似代打卡", "最终进入高风险复核", "92.50", "规则与模型结论一致，建议人工复核");
+        String adminToken = loginAndExtractToken("admin", "123456");
+        String employeeToken = loginAndExtractToken("lisi", "123456");
+
+        mockMvc.perform(post("/api/review/submit")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"exceptionId\":3001,\"reviewResult\":\"REJECTED\",\"reviewComment\":\"排除异常，按正常处理\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.reviewResult").value("REJECTED"));
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].status").value("NORMAL"))
+                .andExpect(jsonPath("$.data.records[0].exceptionProcessStatus").value("REVIEWED"))
+                .andExpect(jsonPath("$.data.records[0].reviewResult").value("REJECTED"));
+
+        mockMvc.perform(get("/api/notification/list")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .param("pageNum", "1")
+                        .param("pageSize", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].category").value("REVIEW_RESULT"))
+                .andExpect(jsonPath("$.data.records[0].content").value(org.hamcrest.Matchers.containsString("当前考勤记录已更新为正常")));
     }
 
     @Test
@@ -594,6 +636,38 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records.length()").value(1))
                 .andExpect(jsonPath("$.data.records[0].code").value("PROXY_CHECKIN"));
+    }
+
+    @Test
+    void shouldFallbackExceptionTypeDescriptionWhenStoredAsQuestionPlaceholder() throws Exception {
+        insertExceptionType(7003L, "ABSENT", "缺勤", "????????????", 1, "2026-03-26 09:00:00", "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/system/exception-type/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .param("status", "1")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].code").value("ABSENT"))
+                .andExpect(jsonPath("$.data.records[0].description").value("在规定时段内未完成上班打卡"));
+    }
+
+    @Test
+    void shouldFallbackExceptionTypeNameWhenStoredAsQuestionPlaceholder() throws Exception {
+        insertExceptionType(7004L, "ABSENT", "??", "在规定时段内未完成上班打卡", 1, "2026-03-26 09:00:00", "2026-03-26 09:10:00");
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/system/exception-type/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .param("status", "1")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].code").value("ABSENT"))
+                .andExpect(jsonPath("$.data.records[0].name").value("缺勤"));
     }
 
     @Test

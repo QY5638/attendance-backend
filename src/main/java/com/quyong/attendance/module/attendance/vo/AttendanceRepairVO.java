@@ -1,18 +1,28 @@
 package com.quyong.attendance.module.attendance.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
 import java.time.LocalDateTime;
 
 public class AttendanceRepairVO {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
+
     private String realName;
     private String deptName;
     private String checkType;
     private LocalDateTime checkTime;
     private String repairReason;
     private String status;
+
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long recordId;
+
     private LocalDateTime createTime;
 
     public Long getId() {

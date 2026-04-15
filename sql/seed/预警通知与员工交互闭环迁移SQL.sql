@@ -113,3 +113,10 @@ FROM DUAL
 WHERE NOT EXISTS (
   SELECT 1 FROM `exceptionType` WHERE `code` = 'ABSENT'
 );
+
+INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`, `createTime`, `updateTime`)
+SELECT 'MISSING_CHECKOUT', '下班缺卡', '在规定时段内未完成下班打卡', 1, NOW(), NOW()
+FROM DUAL
+WHERE NOT EXISTS (
+  SELECT 1 FROM `exceptionType` WHERE `code` = 'MISSING_CHECKOUT'
+);

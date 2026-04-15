@@ -38,7 +38,8 @@ public class NotificationServiceImpl implements NotificationService {
             "REQUEST_EXPLANATION",
             "EMPLOYEE_REPLY_REMINDER",
             "REVIEW_RESULT",
-            "REPAIR_RESULT"
+            "REPAIR_RESULT",
+            "FACE_REGISTER_RESULT"
     ));
 
     private final NotificationRecordMapper notificationRecordMapper;
@@ -167,7 +168,7 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRecord.setBusinessId(command.getBusinessId());
         notificationRecord.setCategory(command.getCategory().trim());
         notificationRecord.setTitle(limitText(command.getTitle(), 120));
-        notificationRecord.setContent(limitText(command.getContent(), 1000));
+        notificationRecord.setContent(sanitizeNotificationContent(limitText(command.getContent(), 1000), command.getCategory()));
         notificationRecord.setLevel(StringUtils.hasText(command.getLevel()) ? limitText(command.getLevel(), 16) : "INFO");
         notificationRecord.setActionCode(StringUtils.hasText(command.getActionCode()) ? limitText(command.getActionCode(), 32) : "VIEW");
         notificationRecord.setReadStatus(READ_STATUS_UNREAD);
@@ -227,7 +228,7 @@ public class NotificationServiceImpl implements NotificationService {
         vo.setBusinessId(entity.getBusinessId());
         vo.setCategory(entity.getCategory());
         vo.setTitle(entity.getTitle());
-        vo.setContent(entity.getContent());
+        vo.setContent(sanitizeNotificationContent(entity.getContent(), entity.getCategory()));
         vo.setLevel(entity.getLevel());
         vo.setActionCode(entity.getActionCode());
         vo.setReadStatus(entity.getReadStatus());
@@ -304,5 +305,59 @@ public class NotificationServiceImpl implements NotificationService {
             return normalized;
         }
         return normalized.substring(0, maxLength);
+    }
+
+    private String sanitizeNotificationContent(String content, String category) {
+        return sanitizeQuestionPlaceholder(content, resolveNotificationFallback(category));
+    }
+
+    private String resolveNotificationFallback(String category) {
+        if ("REQUEST_EXPLANATION".equals(category)) {
+            return "历史说明请求内容无法直接显示，请联系管理员重新发起说明请求。";
+        }
+        if ("EMPLOYEE_REPLY".equals(category)) {
+            return "历史员工说明内容无法直接显示，请联系员工重新补充说明。";
+        }
+        if ("REVIEW_RESULT".equals(category)) {
+            return "历史复核结果说明无法直接显示，请联系管理员查看原始记录。";
+        }
+        return "历史通知内容无法直接显示，请联系管理员查看原始记录。";
+    }
+
+    private String sanitizeQuestionPlaceholder(String value, String fallback) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        String normalized = value.trim();
+        if (!looksLikeQuestionPlaceholder(normalized)) {
+            return normalized;
+        }
+        return StringUtils.hasText(fallback) ? fallback : normalized;
+    }
+
+    private boolean looksLikeQuestionPlaceholder(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        int placeholderCount = 0;
+        int meaningfulCount = 0;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (Character.isWhitespace(current)
+                    || current == ',' || current == '，'
+                    || current == '.' || current == '。'
+                    || current == ';' || current == '；'
+                    || current == ':' || current == '：'
+                    || current == '!' || current == '！'
+                    || current == '(' || current == ')'
+                    || current == '（' || current == '）') {
+                continue;
+            }
+            meaningfulCount++;
+            if (current == '?' || current == '？' || current == '\uFFFD') {
+                placeholderCount++;
+            }
+        }
+        return meaningfulCount >= 3 && placeholderCount == meaningfulCount;
     }
 }

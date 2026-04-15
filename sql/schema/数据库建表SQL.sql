@@ -356,6 +356,7 @@ INSERT INTO `exceptionType` (`code`, `name`, `description`, `status`) VALUES
 ('MULTI_LOCATION_CONFLICT', '多地点异常', '短时间内在多个地点完成打卡，疑似空间冲突', 1),
 ('CONTINUOUS_MULTI_LOCATION_CONFLICT', '连续多地点冲突', '连续周期内多次出现跨地点冲突打卡', 1),
 ('ABSENT', '缺勤', '在规定时段内未完成上班打卡', 1),
+('MISSING_CHECKOUT', '下班缺卡', '在规定时段内未完成下班打卡', 1),
 ('CONTINUOUS_ATTENDANCE_RISK', '连续综合考勤异常', '连续周期内多种规则异常叠加形成的综合风险', 1),
 ('COMPLEX_ATTENDANCE_RISK', '综合识别异常', '模型或降级流程识别出的综合异常风险', 1),
 ('CONTINUOUS_MODEL_RISK', '连续模型风险异常', '连续周期内多次命中模型识别的高风险异常', 1);

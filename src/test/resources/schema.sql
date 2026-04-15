@@ -111,7 +111,7 @@ CREATE TABLE rule (
 
 CREATE TABLE attendanceException (
     id BIGINT PRIMARY KEY,
-    recordId BIGINT NOT NULL,
+    recordId BIGINT,
     userId BIGINT NOT NULL,
     type VARCHAR(50) NOT NULL,
     riskLevel VARCHAR(20) NOT NULL,

@@ -2,6 +2,7 @@ package com.quyong.attendance;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.quyong.attendance.task.AttendanceAbsenceScheduler;
 import com.quyong.attendance.module.exceptiondetect.dto.RuleCheckDTO;
 import com.quyong.attendance.module.exceptiondetect.service.ExceptionAnalysisOrchestrator;
 import com.quyong.attendance.module.model.gateway.dto.ModelInvokeRequest;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -57,6 +59,9 @@ class AttendanceManagementIntegrationTest {
 
     @Autowired
     private ExceptionAnalysisOrchestrator exceptionAnalysisOrchestrator;
+
+    @Autowired
+    private AttendanceAbsenceScheduler attendanceAbsenceScheduler;
 
     @MockBean
     private Clock clock;
@@ -309,6 +314,270 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
+    void shouldTreatEarlyCheckinBeforeWorkStartAsNormal() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 4, 45, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertFaceFeature(1001L, "face-image-early-normal", 1213L, "hash-early-normal-1213");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.111");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-early-normal\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
+
+        Integer illegalTimeCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'ILLEGAL_TIME'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), illegalTimeCount);
+    }
+
+    @Test
+    void shouldTreatCheckoutAfterWorkEndAsNormal() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 23, 30, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertFaceFeature(1001L, "face-image-late-out-normal", 1214L, "hash-late-out-normal-1214");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.112");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"OUT\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-late-out-normal\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
+
+        Integer ruleExceptionCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), ruleExceptionCount);
+    }
+
+    @Test
+    void shouldMarkEarlyCheckoutAsAbnormalImmediately() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 17, 19, 32).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertFaceFeature(1001L, "face-image-early-out", 1215L, "hash-early-out-1215");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.113");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"OUT\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-early-out\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].status").value("ABNORMAL"))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("EARLY_LEAVE"));
+
+        Integer earlyLeaveCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'EARLY_LEAVE'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), earlyLeaveCount);
+    }
+
+    @Test
+    void shouldKeepEarlyLeaveAsDirectTypeInsteadOfContinuousAttendanceRisk() throws Exception {
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 17, 19, 32).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceException(
+                4201L,
+                null,
+                1001L,
+                "ABSENT",
+                "HIGH",
+                "RULE",
+                "历史缺勤一",
+                "PENDING",
+                "2026-03-28 10:58:36"
+        );
+        insertAttendanceException(
+                4202L,
+                null,
+                1001L,
+                "ABSENT",
+                "HIGH",
+                "RULE",
+                "历史缺勤二",
+                "PENDING",
+                "2026-03-29 10:58:36"
+        );
+        insertFaceFeature(1001L, "face-image-early-out-direct", 1216L, "hash-early-out-direct-1216");
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/checkin")
+                        .with(request -> {
+                            request.setRemoteAddr("192.168.1.114");
+                            return request;
+                        })
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"checkType\":\"OUT\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-early-out-direct\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+
+        mockMvc.perform(get("/api/attendance/record/1001")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + loginAndExtractToken("admin", "123456")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("EARLY_LEAVE"));
+
+        Integer earlyLeaveCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'EARLY_LEAVE'",
+                Integer.class,
+                1001L
+        );
+        Integer continuousRiskCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'RULE' AND type = 'CONTINUOUS_ATTENDANCE_RISK'",
+                Integer.class,
+                1001L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), earlyLeaveCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), continuousRiskCount);
+    }
+
+    @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.BEFORE_METHOD)
+    void shouldCompensateTodayAbsenceOnStartupAfterConfiguredCutoff() {
+        insertAttendanceRecord(2101L, 1002L, "2026-03-31 08:58:00", "IN", "DEV-001", "办公区A", 98.10, "NORMAL");
+        mockClockAt(LocalDateTime.of(2026, 3, 31, 9, 12, 0));
+
+        attendanceAbsenceScheduler.compensateTodayOnStartup();
+
+        Integer absenceCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND type = 'ABSENT'",
+                Integer.class,
+                1001L
+        );
+        Integer warningCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM warningRecord WHERE exceptionId IN (SELECT id FROM attendanceException WHERE userId = ? AND type = 'ABSENT')",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND type = 'ABSENT' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), absenceCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("截至09:10"));
+    }
+
+    @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.BEFORE_METHOD)
+    void shouldTriggerAbsenceByCurrentRuleCutoffInsteadOfFixedNineTen() {
+        insertAttendanceRecord(2102L, 1002L, "2026-03-31 08:58:00", "IN", "DEV-001", "办公区A", 98.10, "NORMAL");
+        jdbcTemplate.update(
+                "UPDATE rule SET startTime = ?, endTime = ?, lateThreshold = ?, earlyThreshold = ? WHERE id = ?",
+                "08:30:00",
+                "17:30:00",
+                5,
+                10,
+                1L
+        );
+
+        mockClockAt(LocalDateTime.of(2026, 3, 31, 8, 34, 50));
+        attendanceAbsenceScheduler.run();
+        Integer beforeCutoffCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND type = 'ABSENT'",
+                Integer.class,
+                1001L
+        );
+
+        mockClockAt(LocalDateTime.of(2026, 3, 31, 8, 35, 0));
+        attendanceAbsenceScheduler.run();
+        attendanceAbsenceScheduler.run();
+        Integer afterCutoffCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND type = 'ABSENT'",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND type = 'ABSENT' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), beforeCutoffCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), afterCutoffCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("截至08:35"));
+    }
+
+    @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.BEFORE_METHOD)
+    void shouldSettlePreviousDayMissingCheckoutAfterMidnight() {
+        insertAttendanceRecord(2103L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.10, "NORMAL");
+        jdbcTemplate.update(
+                "UPDATE rule SET startTime = ?, endTime = ?, lateThreshold = ?, earlyThreshold = ? WHERE id = ?",
+                "09:00:00",
+                "17:30:00",
+                10,
+                10,
+                1L
+        );
+        mockClockAt(LocalDateTime.of(2026, 3, 31, 17, 36, 0));
+        attendanceAbsenceScheduler.compensateTodayOnStartup();
+        Integer beforeMidnightCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND type = 'MISSING_CHECKOUT'",
+                Integer.class,
+                1001L
+        );
+
+        mockClockAt(LocalDateTime.of(2026, 4, 1, 0, 6, 0));
+
+        attendanceAbsenceScheduler.compensateTodayOnStartup();
+
+        Integer missingCheckoutCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND type = 'MISSING_CHECKOUT'",
+                Integer.class,
+                1001L
+        );
+        Integer warningCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM warningRecord WHERE exceptionId IN (SELECT id FROM attendanceException WHERE userId = ? AND type = 'MISSING_CHECKOUT')",
+                Integer.class,
+                1001L
+        );
+        String description = jdbcTemplate.queryForObject(
+                "SELECT description FROM attendanceException WHERE userId = ? AND type = 'MISSING_CHECKOUT' ORDER BY id DESC LIMIT 1",
+                String.class,
+                1001L
+        );
+
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), beforeMidnightCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), missingCheckoutCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
+        org.junit.jupiter.api.Assertions.assertTrue(description.contains("2026-03-31 24:00"));
+    }
+
+    @Test
     void shouldUpgradeToContinuousLateExceptionAfterThreeRecentLateCheckins() throws Exception {
         when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 9, 16, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
         insertAttendanceRecord(1988L, 1001L, "2026-03-29 09:14:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
@@ -390,9 +659,9 @@ class AttendanceManagementIntegrationTest {
 
     @Test
     void shouldUpgradeToContinuousIllegalTimeExceptionAfterThreeRecentIllegalTimeCheckins() throws Exception {
-        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 4, 45, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
-        insertAttendanceRecord(1992L, 1001L, "2026-03-29 04:20:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
-        insertAttendanceRecord(1993L, 1001L, "2026-03-30 04:40:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
+        when(clock.instant()).thenReturn(LocalDateTime.of(2026, 3, 31, 18, 45, 0).atZone(ZoneId.of("Asia/Shanghai")).toInstant());
+        insertAttendanceRecord(1992L, 1001L, "2026-03-29 18:20:00", "IN", "DEV-001", "办公区A", 97.20, "ABNORMAL");
+        insertAttendanceRecord(1993L, 1001L, "2026-03-30 18:40:00", "IN", "DEV-001", "办公区A", 97.40, "ABNORMAL");
         insertFaceFeature(1001L, "face-image-continuous-illegal-time", 1209L, "hash-continuous-illegal-time-1209");
         String token = loginAndExtractToken("zhangsan", "123456");
 
@@ -1105,6 +1374,66 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
+    void shouldIncludeAbsenceExceptionInRecordMeForRepairReference() throws Exception {
+        insertAttendanceRecord(2101L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.50, "NORMAL");
+        insertAttendanceException(
+                4101L,
+                null,
+                1001L,
+                "ABSENT",
+                "HIGH",
+                "RULE",
+                "截至09:10仍未完成上班打卡，系统按考勤规则判定为缺勤",
+                "PENDING",
+                "2026-03-31 10:58:36"
+        );
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.records.length()").value(2))
+                .andExpect(jsonPath("$.data.records[0].id").value("4101"))
+                .andExpect(jsonPath("$.data.records[0].status").value("ABSENT"))
+                .andExpect(jsonPath("$.data.records[0].checkType").value("IN"))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("ABSENT"));
+    }
+
+    @Test
+    void shouldIncludeMissingCheckoutExceptionInRecordMeForRepairReference() throws Exception {
+        insertAttendanceRecord(2104L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.50, "NORMAL");
+        insertAttendanceException(
+                4102L,
+                null,
+                1001L,
+                "MISSING_CHECKOUT",
+                "MEDIUM",
+                "RULE",
+                "截至18:00仍未完成下班打卡，系统按考勤规则判定为下班缺卡",
+                "PENDING",
+                "2026-03-31 18:00:00"
+        );
+        String token = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.records.length()").value(2))
+                .andExpect(jsonPath("$.data.records[0].id").value("4102"))
+                .andExpect(jsonPath("$.data.records[0].status").value("MISSING_CHECKOUT"))
+                .andExpect(jsonPath("$.data.records[0].checkType").value("OUT"))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("MISSING_CHECKOUT"));
+    }
+
+    @Test
     void shouldReturnSpecifiedUserRecordsForAdminFromCompatibleRecordPath() throws Exception {
         insertAttendanceRecord(2001L, 1001L, "2026-03-31 08:59:00", "IN", "DEV-001", "办公区A", 98.50, "NORMAL");
         insertAttendanceRecord(2002L, 1002L, "2026-03-31 09:03:00", "IN", "DEV-001", "办公区A", 97.10, "NORMAL");
@@ -1155,6 +1484,121 @@ class AttendanceManagementIntegrationTest {
     }
 
     @Test
+    void shouldReturnExceptionTypeInAdminAttendanceList() throws Exception {
+        insertAttendanceRecord(2201L, 1001L, "2026-03-31 09:12:00", "IN", "DEV-001", "办公区A", 81.20, "ABNORMAL");
+        insertAttendanceException(
+                4201L,
+                2201L,
+                1001L,
+                "LATE",
+                "MEDIUM",
+                "RULE",
+                "超过上班时间阈值，判定为迟到",
+                "PENDING",
+                "2026-03-31 09:12:30"
+        );
+        String token = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/attendance/list")
+                        .param("userId", "1001")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(2201))
+                .andExpect(jsonPath("$.data.records[0].status").value("ABNORMAL"))
+                .andExpect(jsonPath("$.data.records[0].exceptionType").value("LATE"))
+                .andExpect(jsonPath("$.data.records[0].exceptionProcessStatus").value("PENDING"));
+    }
+
+    @Test
+    void shouldCloseSameDayAbsenceExceptionAfterApproveRepair() throws Exception {
+        insertAttendanceException(
+                4301L,
+                null,
+                1001L,
+                "ABSENT",
+                "HIGH",
+                "RULE",
+                "截至09:10仍未完成上班打卡，系统按考勤规则判定为缺勤",
+                "PENDING",
+                "2026-04-13 10:58:36"
+        );
+        insertAttendanceRepair(3301L, 1001L, "IN", "2026-04-13 09:00:00", "设备故障未成功打卡", "PENDING");
+        String adminToken = loginAndExtractToken("admin", "123456");
+        String employeeToken = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/repair/3301/review")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"status\":\"APPROVED\",\"reviewComment\":\"同意补卡\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        String processStatus = jdbcTemplate.queryForObject(
+                "SELECT processStatus FROM attendanceException WHERE id = ?",
+                String.class,
+                4301L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].status").value("REPAIRED"));
+    }
+
+    @Test
+    void shouldCloseSameDayMissingCheckoutExceptionAfterApproveRepair() throws Exception {
+        insertAttendanceException(
+                4302L,
+                null,
+                1001L,
+                "MISSING_CHECKOUT",
+                "MEDIUM",
+                "RULE",
+                "截至18:00仍未完成下班打卡，系统按考勤规则判定为下班缺卡",
+                "PENDING",
+                "2026-04-13 18:00:00"
+        );
+        insertAttendanceRepair(3302L, 1001L, "OUT", "2026-04-13 18:20:00", "加班后忘记下班打卡", "PENDING");
+        String adminToken = loginAndExtractToken("admin", "123456");
+        String employeeToken = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(post("/api/attendance/repair/3302/review")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"status\":\"APPROVED\",\"reviewComment\":\"同意补卡\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        String processStatus = jdbcTemplate.queryForObject(
+                "SELECT processStatus FROM attendanceException WHERE id = ?",
+                String.class,
+                4302L
+        );
+        org.junit.jupiter.api.Assertions.assertEquals("REVIEWED", processStatus);
+
+        mockMvc.perform(get("/api/attendance/record/me")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].status").value("REPAIRED"))
+                .andExpect(jsonPath("$.data.records[0].checkType").value("OUT"));
+    }
+
+    @Test
     void shouldSubmitRepairRequestWhenRequestBodyOmitsUserId() throws Exception {
         String token = loginAndExtractToken("zhangsan", "123456");
 
@@ -1190,6 +1634,86 @@ class AttendanceManagementIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("补卡申请已存在，请勿重复提交"));
+    }
+
+    @Test
+    void shouldReturnAndReviewRepairWithStringIdToAvoidPrecisionLoss() throws Exception {
+        Long repairId = 2043612111095050200L;
+        insertAttendanceRepair(repairId, 1001L, "IN", "2026-04-13 09:00:00", "我需要补卡1", "PENDING");
+        String adminToken = loginAndExtractToken("admin", "123456");
+        String employeeToken = loginAndExtractToken("zhangsan", "123456");
+
+        mockMvc.perform(get("/api/attendance/repair/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .param("status", "PENDING")
+                        .param("userId", "1001")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(String.valueOf(repairId)))
+                .andExpect(jsonPath("$.data.records[0].status").value("PENDING"));
+
+        mockMvc.perform(post("/api/attendance/repair/" + repairId + "/review")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"status\":\"APPROVED\",\"reviewComment\":\"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.id").value(String.valueOf(repairId)))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        Integer pendingCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM attendanceRepair WHERE id = ? AND status = 'PENDING'",
+                Integer.class,
+                repairId
+        );
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), pendingCount);
+
+        mockMvc.perform(get("/api/notification/list")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .param("pageNum", "1")
+                        .param("pageSize", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].category").value("REPAIR_RESULT"))
+                .andExpect(jsonPath("$.data.records[0].title").value("补卡申请处理结果"));
+    }
+
+    @Test
+    void shouldReplaceQuestionPlaceholderInMessageCenterContent() throws Exception {
+        insertAttendanceException(4901L, null, 1002L, "COMPLEX_ATTENDANCE_RISK", "MEDIUM", "MODEL_FALLBACK", "模型调用失败，已转人工处理", "PENDING", "2026-04-13 14:00:00");
+        insertWarningRecord(5901L, 4901L, "ATTENDANCE_WARNING", "MEDIUM", "UNPROCESSED", "????????????????????", "????????????????????", "MODEL_FALLBACK", "EMPLOYEE_REPLIED", "2026-04-13 14:00:00", "2026-04-14 14:10:05", 9001L);
+        insertWarningInteraction(6901L, 5901L, 4901L, 9001L, "ADMIN", "REQUEST_EXPLANATION", "????????????????????????????", "2026-04-13 14:10:04");
+        insertWarningInteraction(6902L, 5901L, 4901L, 1002L, "EMPLOYEE", "EMPLOYEE_REPLY", "?????????????????,???????????,??????", "2026-04-13 14:10:05");
+        insertNotificationRecord(7901L, 1002L, 9001L, "WARNING", 5901L, "REQUEST_EXPLANATION", "综合识别异常处理详情", "????????????????????????????", "MEDIUM", "REPLY", "2026-04-14 14:10:05");
+        String employeeToken = loginAndExtractToken("lisi", "123456");
+
+        mockMvc.perform(get("/api/notification/list")
+                        .header("Authorization", "Bearer " + employeeToken)
+                        .param("pageNum", "1")
+                        .param("pageSize", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.records[0].content").value("历史说明请求内容无法直接显示，请联系管理员重新发起说明请求。"));
+
+        mockMvc.perform(get("/api/notification/7901")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").value("历史说明请求内容无法直接显示，请联系管理员重新发起说明请求。"));
+
+        mockMvc.perform(get("/api/warning/5901/advice")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.aiSummary").value("历史系统摘要无法直接显示，请联系管理员查看原始记录。"))
+                .andExpect(jsonPath("$.data.disposeSuggestion").value("历史处置建议无法直接显示，请联系管理员查看原始记录。"));
+
+        mockMvc.perform(get("/api/warning/5901/interactions")
+                        .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].content").value("历史说明请求内容无法直接显示，请联系管理员重新发起说明请求。"))
+                .andExpect(jsonPath("$.data[1].content").value("历史员工说明内容无法直接显示，请联系员工重新补充说明。"));
     }
 
     private void insertRole(Long id, String code, String name) {
@@ -1392,6 +1916,90 @@ class AttendanceManagementIntegrationTest {
                 status,
                 null
         );
+    }
+
+    private void insertWarningRecord(Long id,
+                                     Long exceptionId,
+                                     String type,
+                                     String level,
+                                     String status,
+                                     String aiSummary,
+                                     String disposeSuggestion,
+                                     String decisionSource,
+                                     String interactionStatus,
+                                     String sendTime,
+                                     String employeeReplyDeadline,
+                                     Long assignedAdminId) {
+        jdbcTemplate.update(
+                "INSERT INTO warningRecord (id, exceptionId, type, level, status, priorityScore, aiSummary, disposeSuggestion, decisionSource, sendTime, interactionStatus, employeeReplyDeadline, assignedAdminId, lastInteractTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id,
+                exceptionId,
+                type,
+                level,
+                status,
+                new BigDecimal("70.00"),
+                aiSummary,
+                disposeSuggestion,
+                decisionSource,
+                sendTime,
+                interactionStatus,
+                employeeReplyDeadline,
+                assignedAdminId,
+                sendTime
+        );
+    }
+
+    private void insertWarningInteraction(Long id,
+                                          Long warningId,
+                                          Long exceptionId,
+                                          Long senderUserId,
+                                          String senderRole,
+                                          String messageType,
+                                          String content,
+                                          String createTime) {
+        jdbcTemplate.update(
+                "INSERT INTO warningInteractionRecord (id, warningId, exceptionId, senderUserId, senderRole, messageType, content, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                id,
+                warningId,
+                exceptionId,
+                senderUserId,
+                senderRole,
+                messageType,
+                content,
+                createTime
+        );
+    }
+
+    private void insertNotificationRecord(Long id,
+                                          Long recipientUserId,
+                                          Long senderUserId,
+                                          String businessType,
+                                          Long businessId,
+                                          String category,
+                                          String title,
+                                          String content,
+                                          String level,
+                                          String actionCode,
+                                          String deadline) {
+        jdbcTemplate.update(
+                "INSERT INTO notificationRecord (id, recipientUserId, senderUserId, businessType, businessId, category, title, content, level, actionCode, readStatus, deadline, createTime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                id,
+                recipientUserId,
+                senderUserId,
+                businessType,
+                businessId,
+                category,
+                title,
+                content,
+                level,
+                actionCode,
+                0,
+                deadline
+        );
+    }
+
+    private void mockClockAt(LocalDateTime dateTime) {
+        when(clock.instant()).thenReturn(dateTime.atZone(ZoneId.of("Asia/Shanghai")).toInstant());
     }
 
     private String loginAndExtractToken(String username, String password) throws Exception {

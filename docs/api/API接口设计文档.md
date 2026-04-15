@@ -673,13 +673,14 @@
 - `periodType`
 
 返回说明：
-- 返回 `text/csv;charset=UTF-8` 文件下载响应
+- 按导出类型返回文件下载响应（`csv` 或 `xlsx`）
 - 响应头包含 `Content-Disposition: attachment`
 - 本轮不默认放开员工导出权限
-- `PERSONAL` 导出个人闭环统计
-- `DEPARTMENT` 导出全局部门汇总统计
-- `TREND` 导出趋势点位统计
-- `AUDIT` 导出操作日志查询结果
+- `PERSONAL`：导出个人统计（含系统处理次数、风险预警数、人工复核数、已完成处置数、待处理预警数、处置完成率）
+- `DEPARTMENT`：导出部门统计 `xlsx` 报表（含汇总概况、部门明细、指标说明）
+- `TREND`：导出趋势点位统计（`csv`）
+- `AUDIT`：导出操作日志查询结果（`csv`）
+- 部门报表口径说明：原“闭环记录数 / 闭环率”已调整为“已完成处置数 / 处置完成率”
 - `AUDIT` 导出保留“导出全量筛选结果”语义，但单次导出上限为 `5000` 条，超限时返回 `code=400`
 
 ## 8. 组织与权限管理接口
@@ -841,6 +842,11 @@
   - `FE-05` 通过该接口查询当前登录用户个人记录
   - 当前登录用户由当前会话解析，不依赖登录响应额外提供 `userId`
   - 保留 `GET /api/attendance/record/{userId}` 作为兼容/管理接口，不作为 `FE-05` 自助入口
+  - 当系统已生成“缺勤异常”或“下班缺卡异常”且该异常尚未关联原始打卡记录时，接口会额外返回一条上下文记录项，供员工在补卡页直接带入
+  - 缺勤场景返回 `status=ABSENT`、`checkType=IN`；下班缺卡场景返回 `status=MISSING_CHECKOUT`、`checkType=OUT`
+  - 上班时间前的 `IN` 打卡按正常打卡处理；下班时间后的 `OUT` 打卡按正常打卡处理
+  - 下班缺卡不是在下班时间即时生成，而是在次日 `00:00` 后结算前一日仍未完成的 `OUT` 打卡
+  - 上述上下文记录项无真实设备上下文，`deviceId` 可能为空
 
 查询参数建议：
 - `pageNum`
@@ -857,6 +863,8 @@
 - `location`
 - `faceScore`
 - `status`
+- `exceptionType`
+- `exceptionProcessStatus`
 
 ### 9.8 查询考勤记录列表
 - 路径：`GET /api/attendance/list`
@@ -882,6 +890,8 @@
 - `location`
 - `faceScore`
 - `status`
+- `exceptionType`
+- `exceptionProcessStatus`
 
 ### 9.9 提交补卡申请
 - 路径：`POST /api/attendance/repair`
