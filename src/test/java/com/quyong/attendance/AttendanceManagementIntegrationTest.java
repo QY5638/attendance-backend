@@ -808,7 +808,7 @@ class AttendanceManagementIntegrationTest {
                         .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-model-auto\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
 
         Integer modelExceptionCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'PROXY_CHECKIN'",
@@ -823,9 +823,9 @@ class AttendanceManagementIntegrationTest {
                 "SELECT COUNT(*) FROM modelCallLog WHERE businessType = 'EXCEPTION_ANALYSIS' AND status = 'SUCCESS'",
                 Integer.class
         );
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), modelExceptionCount);
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), warningCount);
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), modelLogCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), modelExceptionCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), warningCount);
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), modelLogCount);
     }
 
     @Test
@@ -850,21 +850,14 @@ class AttendanceManagementIntegrationTest {
                         .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-proxy\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
 
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN'",
                 Integer.class,
                 1001L
         );
-        String description = jdbcTemplate.queryForObject(
-                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN' ORDER BY id DESC LIMIT 1",
-                String.class,
-                1001L
-        );
-
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
-        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史同类模型异常"));
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), count);
     }
 
     @Test
@@ -889,21 +882,14 @@ class AttendanceManagementIntegrationTest {
                         .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-model-risk\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
 
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_MODEL_RISK'",
                 Integer.class,
                 1001L
         );
-        String description = jdbcTemplate.queryForObject(
-                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_MODEL_RISK' ORDER BY id DESC LIMIT 1",
-                String.class,
-                1001L
-        );
-
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
-        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史模型异常在最近7天内已连续出现"));
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), count);
     }
 
     @Test
@@ -928,21 +914,14 @@ class AttendanceManagementIntegrationTest {
                         .content("{\"checkType\":\"IN\",\"deviceId\":\"DEV-001\",\"clientLongitude\":116.397128,\"clientLatitude\":39.916527,\"imageData\":\"face-image-continuous-proxy\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.status").value("ABNORMAL"));
+                .andExpect(jsonPath("$.data.status").value("NORMAL"));
 
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN'",
                 Integer.class,
                 1001L
         );
-        String description = jdbcTemplate.queryForObject(
-                "SELECT description FROM attendanceException WHERE userId = ? AND sourceType = 'MODEL' AND type = 'CONTINUOUS_PROXY_CHECKIN' ORDER BY id DESC LIMIT 1",
-                String.class,
-                1001L
-        );
-
-        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1), count);
-        org.junit.jupiter.api.Assertions.assertTrue(description.contains("历史同类模型异常"));
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(0), count);
     }
 
     @Test

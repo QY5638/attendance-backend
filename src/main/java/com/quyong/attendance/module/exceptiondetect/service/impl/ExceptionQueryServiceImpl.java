@@ -1,5 +1,6 @@
 package com.quyong.attendance.module.exceptiondetect.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.quyong.attendance.common.api.PageResult;
 import com.quyong.attendance.common.api.ResultCode;
@@ -16,10 +17,12 @@ import com.quyong.attendance.module.exceptiondetect.vo.ExceptionAnalysisBriefVO;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ExceptionQueryServiceImpl implements ExceptionQueryService {
@@ -42,11 +45,21 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
     @Override
     public PageResult<AttendanceExceptionVO> list(ExceptionQueryDTO queryDTO) {
         ExceptionQueryDTO validatedDTO = exceptionValidationSupport.validateQuery(queryDTO);
-        List<AttendanceException> entities = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
+        LambdaQueryWrapper<AttendanceException> queryWrapper = Wrappers.<AttendanceException>lambdaQuery()
                 .eq(validatedDTO.getUserId() != null, AttendanceException::getUserId, validatedDTO.getUserId())
                 .eq(validatedDTO.getType() != null, AttendanceException::getType, validatedDTO.getType())
                 .eq(validatedDTO.getRiskLevel() != null, AttendanceException::getRiskLevel, validatedDTO.getRiskLevel())
-                .eq(validatedDTO.getProcessStatus() != null, AttendanceException::getProcessStatus, validatedDTO.getProcessStatus())
+                .eq(validatedDTO.getProcessStatus() != null, AttendanceException::getProcessStatus, validatedDTO.getProcessStatus());
+
+        if (StringUtils.hasText(validatedDTO.getUserKeyword())) {
+            List<Long> matchedUserIds = resolveMatchedUserIds(validatedDTO.getUserKeyword());
+            if (matchedUserIds.isEmpty()) {
+                return new PageResult<AttendanceExceptionVO>(0L, Collections.<AttendanceExceptionVO>emptyList());
+            }
+            queryWrapper.in(AttendanceException::getUserId, matchedUserIds);
+        }
+
+        List<AttendanceException> entities = attendanceExceptionMapper.selectList(queryWrapper
                 .orderByDesc(AttendanceException::getCreateTime)
                 .orderByDesc(AttendanceException::getId));
         long total = entities.size();
@@ -60,6 +73,42 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
             records.add(toVO(entity));
         }
         return new PageResult<AttendanceExceptionVO>(Long.valueOf(total), records);
+    }
+
+    private List<Long> resolveMatchedUserIds(String userKeyword) {
+        LambdaQueryWrapper<User> queryWrapper = Wrappers.<User>lambdaQuery()
+                .select(User::getId);
+        if (isNumeric(userKeyword)) {
+            Long userId = Long.valueOf(userKeyword);
+            queryWrapper.and(wrapper -> wrapper.like(User::getRealName, userKeyword)
+                    .or()
+                    .like(User::getUsername, userKeyword)
+                    .or()
+                    .eq(User::getId, userId));
+        } else {
+            queryWrapper.and(wrapper -> wrapper.like(User::getRealName, userKeyword)
+                    .or()
+                    .like(User::getUsername, userKeyword));
+        }
+        List<User> users = userMapper.selectList(queryWrapper);
+        if (users.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return users.stream()
+                .map(User::getId)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isNumeric(String value) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        for (int index = 0; index < value.length(); index++) {
+            if (!Character.isDigit(value.charAt(index))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

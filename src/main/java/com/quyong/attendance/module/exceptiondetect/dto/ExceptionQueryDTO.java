@@ -8,6 +8,7 @@ public class ExceptionQueryDTO {
     private String riskLevel;
     private String processStatus;
     private Long userId;
+    private String userKeyword;
 
     public Integer getPageNum() {
         return pageNum;
@@ -55,5 +56,13 @@ public class ExceptionQueryDTO {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getUserKeyword() {
+        return userKeyword;
+    }
+
+    public void setUserKeyword(String userKeyword) {
+        this.userKeyword = userKeyword;
     }
 }

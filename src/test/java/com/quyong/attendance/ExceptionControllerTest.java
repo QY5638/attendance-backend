@@ -56,6 +56,10 @@ class ExceptionControllerTest {
 
     @BeforeEach
     void setUp() {
+        jdbcTemplate.execute("DELETE FROM operationLog");
+        jdbcTemplate.execute("DELETE FROM notificationRecord");
+        jdbcTemplate.execute("DELETE FROM warningInteractionRecord");
+        jdbcTemplate.execute("DELETE FROM warningRecord");
         jdbcTemplate.execute("DELETE FROM reviewRecord");
         jdbcTemplate.execute("DELETE FROM decisionTrace");
         jdbcTemplate.execute("DELETE FROM modelCallLog");
@@ -410,6 +414,7 @@ class ExceptionControllerTest {
         mockMvc.perform(get("/api/exception/list")
                         .param("pageNum", "1")
                         .param("pageSize", "10")
+                        .param("type", "PROXY_CHECKIN")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
@@ -417,6 +422,36 @@ class ExceptionControllerTest {
                 .andExpect(jsonPath("$.data.records.length()").value(1))
                 .andExpect(jsonPath("$.data.records[0].id").value("3001"))
                 .andExpect(jsonPath("$.data.records[0].type").value("PROXY_CHECKIN"));
+    }
+
+    @Test
+    void shouldFilterExceptionListByUserKeyword() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+        insertAttendanceException(3001L, 2001L, 1001L, "LATE", "MEDIUM", "RULE", "上班打卡偏晚", "PENDING");
+        insertAttendanceException(3002L, 2004L, 1002L, "PROXY_CHECKIN", "HIGH", "MODEL", "疑似代打卡", "PENDING");
+
+        mockMvc.perform(get("/api/exception/list")
+                        .param("pageNum", "1")
+                        .param("pageSize", "10")
+                        .param("userKeyword", "张三")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records.length()").value(1))
+                .andExpect(jsonPath("$.data.records[0].userId").value("1001"));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenUserIdQueryParamIsInvalid() throws Exception {
+        String adminToken = loginAndExtractToken("admin", "123456");
+
+        mockMvc.perform(get("/api/exception/list")
+                        .param("userId", "张三")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("请求参数错误"));
     }
 
     @Test

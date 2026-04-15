@@ -31,6 +31,7 @@ public class ExceptionValidationSupport {
         safe.setType(normalize(safe.getType()));
         safe.setRiskLevel(normalize(safe.getRiskLevel()));
         safe.setProcessStatus(normalize(safe.getProcessStatus()));
+        safe.setUserKeyword(normalize(safe.getUserKeyword()));
         return safe;
     }
 

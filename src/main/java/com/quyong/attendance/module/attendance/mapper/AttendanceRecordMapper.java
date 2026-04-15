@@ -68,7 +68,7 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
             "<script>",
             "SELECT merged.id, merged.userId, merged.realName, merged.checkTime, merged.checkType, merged.deviceId, merged.deviceInfo, merged.terminalId, merged.location, merged.faceScore, merged.status, merged.exceptionType, merged.exceptionProcessStatus, merged.repairStatus, merged.reviewResult",
             "FROM (",
-            "  SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status,",
+            "  SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, CASE WHEN (SELECT rr.result FROM reviewRecord rr WHERE rr.exceptionId = (SELECT ae.id FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) ORDER BY rr.reviewTime DESC, rr.id DESC LIMIT 1) = 'REJECTED' THEN 'NORMAL' WHEN (SELECT rr.result FROM reviewRecord rr WHERE rr.exceptionId = (SELECT ae.id FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) ORDER BY rr.reviewTime DESC, rr.id DESC LIMIT 1) = 'CONFIRMED' THEN 'ABNORMAL' ELSE ar.status END AS status,",
             "         (SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType,",
             "         (SELECT ae.processStatus FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionProcessStatus,",
             "         (SELECT apr.status FROM attendanceRepair apr WHERE apr.recordId = ar.id ORDER BY apr.id DESC LIMIT 1) AS repairStatus,",
@@ -150,7 +150,7 @@ public interface AttendanceRecordMapper extends BaseMapper<AttendanceRecord> {
 
     @Select({
             "<script>",
-            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, ar.status,",
+            "SELECT ar.id, ar.userId, u.realName, ar.checkTime, ar.checkType, ar.deviceId, ar.deviceInfo, ar.terminalId, ar.location, ar.faceScore, CASE WHEN (SELECT rr.result FROM reviewRecord rr WHERE rr.exceptionId = (SELECT ae.id FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) ORDER BY rr.reviewTime DESC, rr.id DESC LIMIT 1) = 'REJECTED' THEN 'NORMAL' WHEN (SELECT rr.result FROM reviewRecord rr WHERE rr.exceptionId = (SELECT ae.id FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) ORDER BY rr.reviewTime DESC, rr.id DESC LIMIT 1) = 'CONFIRMED' THEN 'ABNORMAL' ELSE ar.status END AS status,",
             "(SELECT ae.type FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionType,",
             "(SELECT ae.processStatus FROM attendanceException ae WHERE ae.recordId = ar.id ORDER BY ae.id DESC LIMIT 1) AS exceptionProcessStatus,",
             "(SELECT apr.status FROM attendanceRepair apr WHERE apr.recordId = ar.id ORDER BY apr.id DESC LIMIT 1) AS repairStatus,",

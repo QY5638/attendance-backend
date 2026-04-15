@@ -1012,6 +1012,9 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         if (isContinuousRepeatCheckPattern(record, rule)) {
             return CONTINUOUS_REPEAT_CHECK;
         }
+        if (isContinuousAttendanceRiskPattern(record, rule)) {
+            return CONTINUOUS_ATTENDANCE_RISK;
+        }
         if (isLate(record, rule)) {
             return "LATE";
         }
@@ -1020,9 +1023,6 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         }
         if (isRepeatCheck(record, rule)) {
             return "REPEAT_CHECK";
-        }
-        if (isContinuousAttendanceRiskPattern(record, rule)) {
-            return CONTINUOUS_ATTENDANCE_RISK;
         }
         return null;
     }
@@ -1172,6 +1172,18 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         Long count = attendanceExceptionMapper.selectCount(Wrappers.<AttendanceException>lambdaQuery()
                 .eq(AttendanceException::getUserId, record.getUserId())
                 .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType,
+                        "LATE",
+                        "EARLY_LEAVE",
+                        "ILLEGAL_TIME",
+                        "REPEAT_CHECK",
+                        MULTI_LOCATION_CONFLICT,
+                        CONTINUOUS_LATE,
+                        CONTINUOUS_EARLY_LEAVE,
+                        CONTINUOUS_ILLEGAL_TIME,
+                        CONTINUOUS_REPEAT_CHECK,
+                        CONTINUOUS_MULTI_LOCATION_CONFLICT,
+                        CONTINUOUS_ATTENDANCE_RISK)
                 .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
                 .lt(AttendanceException::getCreateTime, record.getCheckTime()));
         return count != null && count.longValue() >= CONTINUOUS_LATE_RECORD_COUNT - 1L;
@@ -1469,6 +1481,18 @@ public class ExceptionAnalysisOrchestratorImpl implements ExceptionAnalysisOrche
         java.util.List<AttendanceException> recentRuleExceptions = attendanceExceptionMapper.selectList(Wrappers.<AttendanceException>lambdaQuery()
                 .eq(AttendanceException::getUserId, record.getUserId())
                 .eq(AttendanceException::getSourceType, RULE_SOURCE)
+                .in(AttendanceException::getType,
+                        "LATE",
+                        "EARLY_LEAVE",
+                        "ILLEGAL_TIME",
+                        "REPEAT_CHECK",
+                        MULTI_LOCATION_CONFLICT,
+                        CONTINUOUS_LATE,
+                        CONTINUOUS_EARLY_LEAVE,
+                        CONTINUOUS_ILLEGAL_TIME,
+                        CONTINUOUS_REPEAT_CHECK,
+                        CONTINUOUS_MULTI_LOCATION_CONFLICT,
+                        CONTINUOUS_ATTENDANCE_RISK)
                 .ge(AttendanceException::getCreateTime, record.getCheckTime().minusDays(CONTINUOUS_LATE_WINDOW_DAYS))
                 .lt(AttendanceException::getCreateTime, record.getCheckTime())
                 .orderByDesc(AttendanceException::getCreateTime)

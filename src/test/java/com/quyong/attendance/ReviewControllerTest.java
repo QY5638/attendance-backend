@@ -651,7 +651,7 @@ class ReviewControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.records[0].code").value("ABSENT"))
-                .andExpect(jsonPath("$.data.records[0].description").value("在规定时段内未完成上班打卡"));
+                .andExpect(jsonPath("$.data.records[0].description").value("在规定时段内未完成上班打卡。"));
     }
 
     @Test

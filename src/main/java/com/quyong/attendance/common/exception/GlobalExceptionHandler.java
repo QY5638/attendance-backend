@@ -5,9 +5,11 @@ import com.quyong.attendance.common.api.ResultCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -29,6 +31,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public Result<Object> handleHttpMessageNotReadableException(HttpMessageNotReadableException exception) {
+        return new Result<Object>(ResultCode.BAD_REQUEST.getCode(), "请求参数错误", null);
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, BindException.class})
+    public Result<Object> handleBindingException(Exception exception) {
         return new Result<Object>(ResultCode.BAD_REQUEST.getCode(), "请求参数错误", null);
     }
 
