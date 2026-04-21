@@ -5,6 +5,7 @@ import java.util.List;
 public class ExceptionTypeTrendItemVO {
 
     private String type;
+    private String name;
     private Long totalCount;
     private List<Long> values;
 
@@ -14,6 +15,14 @@ public class ExceptionTypeTrendItemVO {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public Long getTotalCount() {

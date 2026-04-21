@@ -235,14 +235,16 @@ class WarningControllerTest {
                 .andExpect(jsonPath("$.data.trendPoints.length()").value(7))
                 .andExpect(jsonPath("$.data.topRiskUsers[0].label").value("张三（zhangsan）"))
                 .andExpect(jsonPath("$.data.topRiskUsers[0].count").value(3))
-                .andExpect(jsonPath("$.data.topExceptionTypes[0].label").value("CONTINUOUS_LATE"))
+                .andExpect(jsonPath("$.data.topExceptionTypes[0].label").value("连续迟到"))
                 .andExpect(jsonPath("$.data.exceptionTrendItems[0].type").value("CONTINUOUS_LATE"))
+                .andExpect(jsonPath("$.data.exceptionTrendItems[0].name").value("连续迟到"))
                 .andExpect(jsonPath("$.data.exceptionTrendItems[0].dailyCounts.length()").value(7))
                 .andExpect(jsonPath("$.data.overdueItems[0].title").value("CONTINUOUS_LATE"))
                 .andExpect(jsonPath("$.data.userPortraits[0].realName").value("张三"))
                 .andExpect(jsonPath("$.data.userPortraits[0].totalWarnings").value(3))
                 .andExpect(jsonPath("$.data.userPortraits[0].overdueWarnings").value(2))
-                .andExpect(jsonPath("$.data.userPortraits[0].latestExceptionType").value("LATE"));
+                .andExpect(jsonPath("$.data.userPortraits[0].latestExceptionType").value("LATE"))
+                .andExpect(jsonPath("$.data.userPortraits[0].latestExceptionTypeName").value("迟到"));
     }
 
     @Test

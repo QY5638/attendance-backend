@@ -13,6 +13,7 @@ public class WarningUserPortraitVO {
     private Long overdueWarnings;
     private String riskTier;
     private String latestExceptionType;
+    private String latestExceptionTypeName;
     private String latestWarningLevel;
     private LocalDateTime latestWarningTime;
 
@@ -86,6 +87,14 @@ public class WarningUserPortraitVO {
 
     public void setLatestExceptionType(String latestExceptionType) {
         this.latestExceptionType = latestExceptionType;
+    }
+
+    public String getLatestExceptionTypeName() {
+        return latestExceptionTypeName;
+    }
+
+    public void setLatestExceptionTypeName(String latestExceptionTypeName) {
+        this.latestExceptionTypeName = latestExceptionTypeName;
     }
 
     public String getLatestWarningLevel() {

@@ -42,6 +42,8 @@ public class WarningAdviceVO {
     private BigDecimal faceScore;
     private String recordStatus;
     private String exceptionType;
+    private String exceptionTypeName;
+    private String exceptionTypeDescription;
     private String exceptionSourceType;
     private String exceptionProcessStatus;
     private String exceptionDescription;
@@ -270,6 +272,22 @@ public class WarningAdviceVO {
 
     public void setExceptionType(String exceptionType) {
         this.exceptionType = exceptionType;
+    }
+
+    public String getExceptionTypeName() {
+        return exceptionTypeName;
+    }
+
+    public void setExceptionTypeName(String exceptionTypeName) {
+        this.exceptionTypeName = exceptionTypeName;
+    }
+
+    public String getExceptionTypeDescription() {
+        return exceptionTypeDescription;
+    }
+
+    public void setExceptionTypeDescription(String exceptionTypeDescription) {
+        this.exceptionTypeDescription = exceptionTypeDescription;
     }
 
     public String getExceptionSourceType() {

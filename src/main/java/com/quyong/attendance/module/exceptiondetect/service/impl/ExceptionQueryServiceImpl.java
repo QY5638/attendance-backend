@@ -14,6 +14,7 @@ import com.quyong.attendance.module.exceptiondetect.service.ExceptionQueryServic
 import com.quyong.attendance.module.exceptiondetect.support.ExceptionValidationSupport;
 import com.quyong.attendance.module.exceptiondetect.vo.AttendanceExceptionVO;
 import com.quyong.attendance.module.exceptiondetect.vo.ExceptionAnalysisBriefVO;
+import com.quyong.attendance.module.review.support.ExceptionTypeCatalogService;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
@@ -31,15 +32,18 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
     private final ExceptionAnalysisMapper exceptionAnalysisMapper;
     private final ExceptionValidationSupport exceptionValidationSupport;
     private final UserMapper userMapper;
+    private final ExceptionTypeCatalogService exceptionTypeCatalogService;
 
     public ExceptionQueryServiceImpl(AttendanceExceptionMapper attendanceExceptionMapper,
                                      ExceptionAnalysisMapper exceptionAnalysisMapper,
                                      ExceptionValidationSupport exceptionValidationSupport,
-                                     UserMapper userMapper) {
+                                     UserMapper userMapper,
+                                     ExceptionTypeCatalogService exceptionTypeCatalogService) {
         this.attendanceExceptionMapper = attendanceExceptionMapper;
         this.exceptionAnalysisMapper = exceptionAnalysisMapper;
         this.exceptionValidationSupport = exceptionValidationSupport;
         this.userMapper = userMapper;
+        this.exceptionTypeCatalogService = exceptionTypeCatalogService;
     }
 
     @Override
@@ -152,6 +156,8 @@ public class ExceptionQueryServiceImpl implements ExceptionQueryService {
             }
         }
         vo.setType(entity.getType());
+        vo.setTypeName(exceptionTypeCatalogService.resolveName(entity.getType()));
+        vo.setTypeDescription(exceptionTypeCatalogService.resolveDescription(entity.getType()));
         vo.setRiskLevel(entity.getRiskLevel());
         vo.setSourceType(entity.getSourceType());
         vo.setDescription(entity.getDescription());
