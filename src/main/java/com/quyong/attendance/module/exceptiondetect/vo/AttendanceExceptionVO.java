@@ -18,6 +18,8 @@ public class AttendanceExceptionVO {
     private String username;
     private String realName;
     private String type;
+    private String typeName;
+    private String typeDescription;
     private String riskLevel;
     private String sourceType;
     private String description;
@@ -70,6 +72,22 @@ public class AttendanceExceptionVO {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getTypeName() {
+        return typeName;
+    }
+
+    public void setTypeName(String typeName) {
+        this.typeName = typeName;
+    }
+
+    public String getTypeDescription() {
+        return typeDescription;
+    }
+
+    public void setTypeDescription(String typeDescription) {
+        this.typeDescription = typeDescription;
     }
 
     public String getRiskLevel() {

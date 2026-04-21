@@ -14,6 +14,8 @@ public class WarningVO {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long exceptionId;
     private String exceptionType;
+    private String exceptionTypeName;
+    private String exceptionTypeDescription;
     private String type;
     private String level;
     private String status;
@@ -58,6 +60,22 @@ public class WarningVO {
 
     public void setExceptionType(String exceptionType) {
         this.exceptionType = exceptionType;
+    }
+
+    public String getExceptionTypeName() {
+        return exceptionTypeName;
+    }
+
+    public void setExceptionTypeName(String exceptionTypeName) {
+        this.exceptionTypeName = exceptionTypeName;
+    }
+
+    public String getExceptionTypeDescription() {
+        return exceptionTypeDescription;
+    }
+
+    public void setExceptionTypeDescription(String exceptionTypeDescription) {
+        this.exceptionTypeDescription = exceptionTypeDescription;
     }
 
     public String getLevel() {

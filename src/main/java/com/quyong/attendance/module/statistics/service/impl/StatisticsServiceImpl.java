@@ -31,6 +31,7 @@ import com.quyong.attendance.module.statistics.vo.StatisticsSummaryVO;
 import com.quyong.attendance.module.user.entity.User;
 import com.quyong.attendance.module.user.support.UserValidationSupport;
 import com.quyong.attendance.module.warning.service.WarningService;
+import com.quyong.attendance.module.review.support.ExceptionTypeCatalogService;
 import com.quyong.attendance.module.warning.vo.WarningDashboardVO;
 import com.quyong.attendance.module.warning.vo.WarningExceptionTrendItemVO;
 import com.quyong.attendance.module.warning.vo.WarningOverdueItemVO;
@@ -86,6 +87,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final DepartmentMapper departmentMapper;
     private final OperationLogService operationLogService;
     private final WarningService warningService;
+    private final ExceptionTypeCatalogService exceptionTypeCatalogService;
 
     public StatisticsServiceImpl(StatisticsMapper statisticsMapper,
                                  StatisticsValidationSupport statisticsValidationSupport,
@@ -93,7 +95,8 @@ public class StatisticsServiceImpl implements StatisticsService {
                                  UserValidationSupport userValidationSupport,
                                  DepartmentMapper departmentMapper,
                                  OperationLogService operationLogService,
-                                 WarningService warningService) {
+                                 WarningService warningService,
+                                 ExceptionTypeCatalogService exceptionTypeCatalogService) {
         this.statisticsMapper = statisticsMapper;
         this.statisticsValidationSupport = statisticsValidationSupport;
         this.statisticsSummarySupport = statisticsSummarySupport;
@@ -101,6 +104,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         this.departmentMapper = departmentMapper;
         this.operationLogService = operationLogService;
         this.warningService = warningService;
+        this.exceptionTypeCatalogService = exceptionTypeCatalogService;
     }
 
     @Override
@@ -193,6 +197,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         for (Map.Entry<String, Long> entry : totalMap.entrySet()) {
             ExceptionTypeTrendItemVO item = new ExceptionTypeTrendItemVO();
             item.setType(entry.getKey());
+            item.setName(exceptionTypeCatalogService.resolveName(entry.getKey()));
             item.setTotalCount(entry.getValue());
             Map<String, Long> itemMap = trendMap.get(entry.getKey());
             List<Long> values = new ArrayList<Long>(labels.size());
@@ -660,7 +665,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         builder.append('\n').append("异常类型趋势,异常类型,每日分布\n");
         for (WarningExceptionTrendItemVO item : safeList(dashboard.getExceptionTrendItems())) {
             builder.append("异常类型趋势,")
-                    .append(csvValue(item.getType())).append(',')
+                    .append(csvValue(item.getName() == null ? item.getType() : item.getName())).append(',')
                     .append(csvValue(joinDailyCounts(item.getDailyCounts())))
                     .append('\n');
         }
@@ -675,7 +680,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                     .append(nullableLongValue(item.getHighRiskWarnings())).append(',')
                     .append(nullableLongValue(item.getUnprocessedWarnings())).append(',')
                     .append(nullableLongValue(item.getOverdueWarnings())).append(',')
-                    .append(csvValue(item.getLatestExceptionType())).append('\n');
+                    .append(csvValue(item.getLatestExceptionTypeName() == null ? item.getLatestExceptionType() : item.getLatestExceptionTypeName())).append('\n');
         }
 
         builder.append('\n').append("处置超时提醒,预警编号,异常编号,标题,人员,超时分钟\n");

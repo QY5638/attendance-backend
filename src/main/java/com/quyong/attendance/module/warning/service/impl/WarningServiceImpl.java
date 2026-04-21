@@ -18,6 +18,7 @@ import com.quyong.attendance.module.notification.dto.NotificationCreateCommand;
 import com.quyong.attendance.module.notification.service.NotificationService;
 import com.quyong.attendance.module.review.entity.ReviewRecord;
 import com.quyong.attendance.module.review.mapper.ReviewRecordMapper;
+import com.quyong.attendance.module.review.support.ExceptionTypeCatalogService;
 import com.quyong.attendance.module.role.entity.Role;
 import com.quyong.attendance.module.role.mapper.RoleMapper;
 import com.quyong.attendance.module.statistics.service.OperationLogService;
@@ -119,6 +120,7 @@ public class WarningServiceImpl implements WarningService {
     private final RoleMapper roleMapper;
     private final RuleService ruleService;
     private final UserMapper userMapper;
+    private final ExceptionTypeCatalogService exceptionTypeCatalogService;
     private final WarningValidationSupport warningValidationSupport;
     private final RiskLevelRegistry riskLevelRegistry;
     private final OperationLogService operationLogService;
@@ -135,6 +137,7 @@ public class WarningServiceImpl implements WarningService {
                               RoleMapper roleMapper,
                               RuleService ruleService,
                               UserMapper userMapper,
+                              ExceptionTypeCatalogService exceptionTypeCatalogService,
                               WarningValidationSupport warningValidationSupport,
                               RiskLevelRegistry riskLevelRegistry,
                               OperationLogService operationLogService,
@@ -150,6 +153,7 @@ public class WarningServiceImpl implements WarningService {
         this.roleMapper = roleMapper;
         this.ruleService = ruleService;
         this.userMapper = userMapper;
+        this.exceptionTypeCatalogService = exceptionTypeCatalogService;
         this.warningValidationSupport = warningValidationSupport;
         this.riskLevelRegistry = riskLevelRegistry;
         this.operationLogService = operationLogService;
@@ -357,7 +361,7 @@ public class WarningServiceImpl implements WarningService {
         if (rankingItem == null) {
             rankingItem = new WarningRankingItemVO();
             rankingItem.setKey(key);
-            rankingItem.setLabel(key);
+            rankingItem.setLabel(exceptionTypeCatalogService.resolveName(key));
             rankingItem.setCount(Long.valueOf(0L));
             rankingItem.setHighRiskCount(Long.valueOf(0L));
             rankingMap.put(key, rankingItem);
@@ -426,6 +430,7 @@ public class WarningServiceImpl implements WarningService {
             portrait.setLatestWarningTime(warning.getSendTime());
             portrait.setLatestWarningLevel(warning.getLevel());
             portrait.setLatestExceptionType(attendanceException == null ? null : attendanceException.getType());
+            portrait.setLatestExceptionTypeName(exceptionTypeCatalogService.resolveName(attendanceException == null ? null : attendanceException.getType()));
         }
         portrait.setRiskTier(resolvePortraitRiskTier(portrait));
     }
@@ -499,6 +504,7 @@ public class WarningServiceImpl implements WarningService {
         for (WarningRankingItemVO rankingItem : topTypes) {
             WarningExceptionTrendItemVO item = new WarningExceptionTrendItemVO();
             item.setType(rankingItem.getKey());
+            item.setName(exceptionTypeCatalogService.resolveName(rankingItem.getKey()));
             item.setTotalCount(rankingItem.getCount());
             item.setHighRiskCount(rankingItem.getHighRiskCount());
             long[] counters = exceptionTrendMap.get(rankingItem.getKey());
@@ -571,6 +577,8 @@ public class WarningServiceImpl implements WarningService {
             vo.setRecordStatus(attendanceRecord.getStatus());
         }
         vo.setExceptionType(attendanceException.getType());
+        vo.setExceptionTypeName(exceptionTypeCatalogService.resolveName(attendanceException.getType()));
+        vo.setExceptionTypeDescription(exceptionTypeCatalogService.resolveDescription(attendanceException.getType()));
         vo.setExceptionSourceType(attendanceException.getSourceType());
         vo.setExceptionProcessStatus(attendanceException.getProcessStatus());
         vo.setExceptionDescription(sanitizeAdviceText(attendanceException.getDescription(), "历史异常说明无法直接显示，请联系管理员查看原始记录。"));
@@ -1108,6 +1116,8 @@ public class WarningServiceImpl implements WarningService {
         vo.setId(warningRecord.getId());
         vo.setExceptionId(warningRecord.getExceptionId());
         vo.setExceptionType(attendanceException == null ? null : attendanceException.getType());
+        vo.setExceptionTypeName(exceptionTypeCatalogService.resolveName(attendanceException == null ? null : attendanceException.getType()));
+        vo.setExceptionTypeDescription(exceptionTypeCatalogService.resolveDescription(attendanceException == null ? null : attendanceException.getType()));
         vo.setType(warningRecord.getType());
         vo.setLevel(warningRecord.getLevel());
         vo.setStatus(warningRecord.getStatus());
@@ -1377,61 +1387,8 @@ public class WarningServiceImpl implements WarningService {
     }
 
     private String resolveExceptionName(String type) {
-        if (!StringUtils.hasText(type)) {
-            return "异常";
-        }
-        if (ABSENT.equals(type)) {
-            return "缺勤";
-        }
-        if (MISSING_CHECKOUT.equals(type)) {
-            return "下班缺卡";
-        }
-        if ("LATE".equals(type)) {
-            return "迟到";
-        }
-        if ("EARLY_LEAVE".equals(type)) {
-            return "早退";
-        }
-        if ("REPEAT_CHECK".equals(type)) {
-            return "重复打卡";
-        }
-        if ("ILLEGAL_TIME".equals(type)) {
-            return "非法时间打卡";
-        }
-        if ("MULTI_LOCATION_CONFLICT".equals(type)) {
-            return "多地点异常";
-        }
-        if ("PROXY_CHECKIN".equals(type)) {
-            return "疑似代打卡";
-        }
-        if ("CONTINUOUS_LATE".equals(type)) {
-            return "连续迟到";
-        }
-        if ("CONTINUOUS_EARLY_LEAVE".equals(type)) {
-            return "连续早退";
-        }
-        if ("CONTINUOUS_REPEAT_CHECK".equals(type)) {
-            return "连续重复打卡";
-        }
-        if ("CONTINUOUS_ILLEGAL_TIME".equals(type)) {
-            return "连续非法时间打卡";
-        }
-        if ("CONTINUOUS_MULTI_LOCATION_CONFLICT".equals(type)) {
-            return "连续多地点冲突";
-        }
-        if ("CONTINUOUS_PROXY_CHECKIN".equals(type)) {
-            return "连续代打卡";
-        }
-        if ("CONTINUOUS_ATTENDANCE_RISK".equals(type)) {
-            return "连续综合考勤异常";
-        }
-        if ("CONTINUOUS_MODEL_RISK".equals(type)) {
-            return "连续模型风险异常";
-        }
-        if ("COMPLEX_ATTENDANCE_RISK".equals(type)) {
-            return "综合识别异常";
-        }
-        return type;
+        String resolved = exceptionTypeCatalogService.resolveName(type);
+        return StringUtils.hasText(resolved) ? resolved : "异常";
     }
 
     private boolean isAdmin(AuthUser authUser) {
